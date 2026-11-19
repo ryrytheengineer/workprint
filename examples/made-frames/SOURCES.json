@@ -1,0 +1,48 @@
+{
+  "retrieved": "2026-11-19",
+  "note": "Fetched from Wikimedia Commons. Licence and author as recorded in each file's Commons metadata on the retrieval date.",
+  "files": [
+    {
+      "file": "panacolor.jpg",
+      "commons_title": "File:Pana Color TH13-R30 20090504.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Pana_Color_TH13-R30_20090504.jpg",
+      "license": "CC BY 2.0",
+      "author": "mxmstryo",
+      "variant": "original (4202 x 2790)",
+      "modified": "Picture composited onto the screen; camera push"
+    },
+    {
+      "file": "WP_launch_cu_tracking.webm",
+      "commons_title": "File:Artemis I Launch (Artemis I Launch 2022 CU tracking from Press Site compressed).webm",
+      "license": "Public domain",
+      "author": "NASA Marshall Space Flight Center",
+      "used": "98.0 to 101.5 s",
+      "page": "https://commons.wikimedia.org/wiki/File:Artemis_I_Launch_(Artemis_I_Launch_2022_CU_tracking_from_Press_Site_compressed).webm"
+    },
+    {
+      "file": "WP_rollout_a2_39b.webm",
+      "commons_title": "File:NASA's SLS Rocket and Orion Spacecraft Rollout to Launch Pad 39B (KSC 20260117 A2 to 39B).webm",
+      "license": "Public domain",
+      "author": "NASA Kennedy Space Center",
+      "used": "12.0 to 15.0 s",
+      "page": "https://commons.wikimedia.org/wiki/File:NASA's_SLS_Rocket_and_Orion_Spacecraft_Rollout_to_Launch_Pad_39B_(KSC_20260117_A2_to_39B).webm"
+    },
+    {
+      "file": "WP_pad39b_broll.webm",
+      "commons_title": "File:Artemis II at Launch Pad 39B (KSC-02032026-Artemis II B Roll and Timelapes).webm",
+      "license": "Public domain",
+      "author": "NASA Marshall Space Flight Center",
+      "used": "added to the project, not in the preview",
+      "page": "https://commons.wikimedia.org/wiki/File:Artemis_II_at_Launch_Pad_39B_(KSC-02032026-Artemis_II_B_Roll_and_Timelapes).webm"
+    },
+    {
+      "file": "WP_mus_stormfront.mp3",
+      "commons_title": "File:Stormfront (ISRC USUAN1200043).mp3",
+      "page": "https://commons.wikimedia.org/wiki/File:Stormfront_(ISRC_USUAN1200043).mp3",
+      "license": "CC BY 3.0",
+      "author": "Kevin MacLeod (incompetech.com)",
+      "used": "30.0 to 36.5 s"
+    }
+  ],
+  "endorsement": "NASA does not endorse Workprint. Use of NASA material does not imply endorsement."
+}

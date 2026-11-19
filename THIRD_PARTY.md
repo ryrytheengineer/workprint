@@ -39,8 +39,13 @@ Matte tools, installed only by `workprint matte setup --yes` and never bundled:
 - **IS-Net general-use** salient-object weights from the DIS project (Xuebin Qin and
   colleagues), in the ONNX file published in the rembg project's GitHub releases.
   Downloaded from there and used only if its SHA-256 matches the value pinned in
-  `src/workprint/matte.py`. Check those projects for the weights' licence terms before
-  commercial use; Workprint does not redistribute them.
+  `src/workprint/matte.py`. Workprint does not redistribute them. Licence status, checked
+  2026-11-19: the DIS repository (github.com/xuebinqin/DIS) licenses its code under Apache-2.0;
+  the general-use weights are released there with no licence of their own; the DIS5K training
+  data is under terms that allow non-commercial research and education only and forbid
+  commercial use "even after copying, editing, processing" without the authors' permission. The
+  rembg project that hosts the ONNX file is MIT and says model weights carry their own licences.
+  **Treat the cut-out model as not cleared for commercial use** until the authors say otherwise.
 
 SVG logos are drawn by whichever of librsvg, resvg, Inkscape, ImageMagick or cairosvg is
 already installed; none is bundled or installed by Workprint.

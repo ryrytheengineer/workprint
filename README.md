@@ -13,6 +13,7 @@ By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creativ
 ![Storyboard of the example film](examples/return/review/storyboard.jpg)
 
 *"Return", 41 seconds, cut with Workprint from NASA's public-domain Artemis footage.
+Clips on a screen and cut-out cards (0.6): [`examples/made-frames/`](examples/made-frames/).
 Preview: [`examples/return/return-preview.mp4`](examples/return/return-preview.mp4).
 How it was made, shot by shot: [`examples/return/`](examples/return/).*
 
@@ -68,7 +69,8 @@ How it was made, shot by shot: [`examples/return/`](examples/return/).*
 - **Learns habits, not taste.** Point it at films you like and it measures shot lengths,
   cutting rate, how often cuts land on the beat, loudness. You correct the numbers; it uses them.
 
-It runs on your machine. No GPU, no API keys, no accounts, no editing application. The one
+It runs on your machine: no GPU, no editing application, and the engine itself needs no API key
+or account. You do need Claude Code, which needs its own Anthropic plan or API access. The only
 large downloads are optional and explicit: a 482 MB speech model (`workprint voice setup --yes`) and a
 179 MB cut-out model (`workprint matte setup --yes`).
 
@@ -194,8 +196,9 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 
 Read these before relying on it.
 
-- **Verified on Linux only.** It is written to be portable, but it has not been run on
-  macOS or Windows yet.
+- **Verified by hand on Linux only.** A test workflow for Linux, macOS and Windows is in
+  `.github/workflows/tests.yml`; until it has passed on all three, treat macOS and Windows as
+  untested. Its results are on the repository's Actions tab.
 - **The editor cannot watch or listen.** Claude judges from still frames, filmstrips and
   meters. Motion, performance and the feel of the mix need your eyes and ears.
 - **Built for music-driven films up to a minute or two**, with or without a voice-over.
@@ -237,7 +240,10 @@ Read these before relying on it.
 - **Bar lines are an estimate.** Tempo and beats are reliable on steady music; which beat
   is "one" is a heuristic with a reported confidence. Music with a changing tempo is not handled.
 - **Hard cuts inside source clips are found; dissolves are not.**
-- **8-bit, Rec.709.** HDR and log footage is not converted. Slow motion repeats frames (no interpolation).
+- **8-bit, Rec.709 only.** Footage is decoded to 8-bit Rec.709. HDR (PQ, HLG) and camera log (S-Log3,
+  C-Log, V-Log and the like) are not converted: log looks flat and HDR looks washed out, and there is no
+  LUT input yet. Convert such footage to Rec.709 elsewhere first. Slow motion repeats frames unless the
+  cut sets `"interp": "blend"` or `"flow"` (see above).
 - **Timeline export is experimental.** EDL and OpenTimelineIO files are written and the
   OTIO file reads back, but import into Premiere Pro and Resolve has not been verified.
   Grades, effects, titles and the mix do not travel.
@@ -251,7 +257,7 @@ Read these before relying on it.
   where to look; it does not decide.
 - **Designed sounds are synthesised.** They are tuned to the track's key and mixed
   conservatively, and they are not a sound library. Use your own files where it matters.
-- **No mattes, tracking or object removal yet.** See [ROADMAP.md](ROADMAP.md).
+- **No object removal**, and nothing tracks a subject you choose. See [ROADMAP.md](ROADMAP.md).
 
 ## Platforms and requirements
 
@@ -264,7 +270,21 @@ Read these before relying on it.
 | SVG logos (optional) | librsvg, resvg, Inkscape, ImageMagick or cairosvg; PNG logos need nothing |
 | Voice tools (optional) | PocketSphinx, sherpa-onnx and a 482 MB speech model, installed only when you run `workprint voice setup --yes` |
 | Hardware | No GPU. The example rendered at 1080p on 2 CPU cores, peaking at 341 MB in the largest process |
-| Operating systems | Linux tested. macOS and Windows expected to work, not yet verified |
+| Operating systems | Linux tested by hand. macOS and Windows run in CI (`.github/workflows/tests.yml`); see the Actions tab for results |
+
+## Paid work and the optional models
+
+The engine and its bundled fonts may be used in commercial work under their licences. The two
+optional models are another matter:
+
+- **Speech model** (Parakeet, NVIDIA): CC BY 4.0, which allows commercial use with credit.
+- **Cut-out model** (IS-Net general-use): **unresolved.** Its code is Apache-2.0, but the weights
+  carry no licence of their own, and they were trained on the DIS5K dataset, whose terms forbid
+  commercial use of the dataset without the authors' permission. Whether that reaches the weights
+  is a legal question this project cannot answer. Until you have a written answer from the
+  authors or your own lawyer, do not use anything that needs it in paid work: `cutout`, `matte`
+  transitions, words behind a subject, still parallax. The screen effect, captions, titles, sound
+  and everything else do not use it.
 
 ## Your footage, and other people's
 

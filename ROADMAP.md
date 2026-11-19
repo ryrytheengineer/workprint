@@ -30,8 +30,10 @@ unless the README says so.
    motion so the planner can propose match cuts instead of leaving them to luck.
 8. **Better reframing.** 0.2 proposes a fixed frame per shot from detail and movement.
    Next: a frame that follows the subject through the shot.
-9. **Colour.** A scene-referred float pipeline, 10-bit output, HDR sources tone-mapped
-   on ingest, LUT import, and automatic shot-to-shot balance as a starting point.
+9. **Colour.** Moved up: original camera footage (for example S-Log3 from a Sony FX3) needs it.
+   First, log and HDR ingest: read the transfer from the file, convert with a camera LUT or a
+   named transform to Rec.709, and warn when a source looks like log. Then a scene-referred float
+   pipeline, 10-bit output and automatic shot-to-shot balance as a starting point.
 10. **Stems.** 0.3 finds drum hits by measurement. Real separation (Demucs or similar), so a
     vocal can be removed from under a voice-over and stems ducked individually, is still to do.
 11. **A logging subagent** so large libraries (hundreds of shots) are described in

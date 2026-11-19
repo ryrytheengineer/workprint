@@ -59,6 +59,7 @@ def setup(progress=print) -> dict:
     if not target.exists():
         target.parent.mkdir(parents=True, exist_ok=True)
         partial = target.with_suffix(".part")
+        progress("note: the cut-out model is not cleared for commercial use; see THIRD_PARTY.md")
         progress(f"downloading the matte model ({MODEL['bytes'] / 1e6:.0f} MB) from {MODEL['url']}")
         digest = hashlib.sha256()
         with urllib.request.urlopen(MODEL["url"], timeout=60) as response, open(partial, "wb") as out:
