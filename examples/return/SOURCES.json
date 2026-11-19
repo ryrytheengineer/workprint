@@ -1,0 +1,102 @@
+{
+ "retrieved": "2026-11-18",
+ "note": "Fetched from Wikimedia Commons. Licence and author as recorded in each file's Commons metadata on the retrieval date. Download each file from its Commons page (the 1080p VP9 transcode where the variant says so) into footage/ under the name given.",
+ "files": [
+  {
+   "file": "WP_mus_stormfront.mp3",
+   "commons_title": "File:Stormfront (ISRC USUAN1200043).mp3",
+   "page": "https://commons.wikimedia.org/wiki/File:Stormfront_(ISRC_USUAN1200043).mp3",
+   "license": "CC BY 3.0",
+   "author": "Kevin MacLeod (incompetech.com)",
+   "variant": "original"
+  },
+  {
+   "file": "WP_test_stand_flush.webm",
+   "commons_title": "File:Thad Cochran Test Stand Flush Time Warp (SSC2026m000163).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Thad_Cochran_Test_Stand_Flush_Time_Warp_(SSC2026m000163).webm",
+   "license": "Public domain",
+   "author": "NASA Stennis Space Center",
+   "variant": "original"
+  },
+  {
+   "file": "WP_launch_causeway_slomo.webm",
+   "commons_title": "File:Artemis I Launch from NASA Causeway (Slo Mo) (GX010506).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Artemis_I_Launch_from_NASA_Causeway_(Slo_Mo)_(GX010506).webm",
+   "license": "Public domain",
+   "author": "NASA Marshall Space Flight Center",
+   "variant": "1080p VP9 transcode"
+  },
+  {
+   "file": "WP_earthrise_orion.webm",
+   "commons_title": "File:Earth Rise as Seen from Orion Spacecraft (ART-SAW4 2022 325 1305 SHARED art001m1203251305).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Earth_Rise_as_Seen_from_Orion_Spacecraft_(ART-SAW4_2022_325_1305_SHARED_art001m1203251305).webm",
+   "license": "Public domain",
+   "author": "NASA Johnson Space Center",
+   "variant": "original"
+  },
+  {
+   "file": "WP_crescent_moon_orion.webm",
+   "commons_title": "File:Flight Day 8- Orion and Crescent Moon (ART-SAW4 2022 327 0350 SHARED art001m1203270350).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Flight_Day_8-_Orion_and_Crescent_Moon_(ART-SAW4_2022_327_0350_SHARED_art001m1203270350).webm",
+   "license": "Public domain",
+   "author": "NASA Johnson Space Center",
+   "variant": "original"
+  },
+  {
+   "file": "WP_pad39b_broll.webm",
+   "commons_title": "File:Artemis II at Launch Pad 39B (KSC-02032026-Artemis II B Roll and Timelapes).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Artemis_II_at_Launch_Pad_39B_(KSC-02032026-Artemis_II_B_Roll_and_Timelapes).webm",
+   "license": "Public domain",
+   "author": "NASA Marshall Space Flight Center",
+   "variant": "1080p VP9 transcode"
+  },
+  {
+   "file": "WP_rollout_helo_aerials.webm",
+   "commons_title": "File:Artemis I Rollout for Launch -- HELO - AERIALS (KSC-20221104-MH-ICH01-0001-Artemis I Rollout for Launch HELO-3317810).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Artemis_I_Rollout_for_Launch_--_HELO_-_AERIALS_(KSC-20221104-MH-ICH01-0001-Artemis_I_Rollout_for_Launch_HELO-3317810).webm",
+   "license": "Public domain",
+   "author": "NASA Kennedy Space Center",
+   "variant": "1080p VP9 transcode"
+  },
+  {
+   "file": "WP_launch_cu_tracking.webm",
+   "commons_title": "File:Artemis I Launch (Artemis I Launch 2022 CU tracking from Press Site compressed).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Artemis_I_Launch_(Artemis_I_Launch_2022_CU_tracking_from_Press_Site_compressed).webm",
+   "license": "Public domain",
+   "author": "NASA Marshall Space Flight Center",
+   "variant": "1080p VP9 transcode"
+  },
+  {
+   "file": "WP_launch_icps.webm",
+   "commons_title": "File:Artemis I Launch to ICPS (1222409007178).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Artemis_I_Launch_to_ICPS_(1222409007178).webm",
+   "license": "Public domain",
+   "author": "NASA (uploaded to Commons by Patricia Moore)",
+   "variant": "original"
+  },
+  {
+   "file": "WP_rollout_a2_39b.webm",
+   "commons_title": "File:NASA's SLS Rocket and Orion Spacecraft Rollout to Launch Pad 39B (KSC 20260117 A2 to 39B).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:NASA's_SLS_Rocket_and_Orion_Spacecraft_Rollout_to_Launch_Pad_39B_(KSC_20260117_A2_to_39B).webm",
+   "license": "Public domain",
+   "author": "NASA Kennedy Space Center",
+   "variant": "original"
+  },
+  {
+   "file": "WP_pad_post_launch.webm",
+   "commons_title": "File:Artemis I Post Launch Ground Systems Assessment of LC-39B (KSC-20221116-MH-NAS01-0001-Artemis I Post Launch Ground Systems LC 39B-3318786).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Artemis_I_Post_Launch_Ground_Systems_Assessment_of_LC-39B_(KSC-20221116-MH-NAS01-0001-Artemis_I_Post_Launch_Ground_Systems_LC_39B-3318786).webm",
+   "license": "Public domain",
+   "author": "NASA Kennedy Space Center",
+   "variant": "original"
+  },
+  {
+   "file": "WP_core_stage_join_broll.webm",
+   "commons_title": "File:Artemis III Core Stage Major Join Complete (MAF 20260108 CS3 MJ3 Main-B-roll-v2-bl).webm",
+   "page": "https://commons.wikimedia.org/wiki/File:Artemis_III_Core_Stage_Major_Join_Complete_(MAF_20260108_CS3_MJ3_Main-B-roll-v2-bl).webm",
+   "license": "Public domain",
+   "author": "NASA Michoud Assembly Facility",
+   "variant": "1080p VP9 transcode"
+  }
+ ]
+}

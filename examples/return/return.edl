@@ -1,0 +1,83 @@
+TITLE: Return
+FCM: NON-DROP FRAME
+
+001  A001     V     C        00:04:40:16 00:04:44:14 00:00:00:00 00:00:03:22
+* FROM CLIP NAME: WP_core_stage_join_broll.webm
+* WORKPRINT c001: asleep: pinned by the editor
+002  A001     V     C        00:02:16:00 00:02:19:22 00:00:03:22 00:00:07:20
+* FROM CLIP NAME: WP_core_stage_join_broll.webm
+* WORKPRINT c002: asleep: energy 0.1 vs shot liveliness 0.13, rated 4, 2 tag match
+003  A001     V     C        00:00:57:22 00:00:59:21 00:00:07:20 00:00:09:19
+* FROM CLIP NAME: WP_core_stage_join_broll.webm
+* WORKPRINT c003: moving: energy 0.3 vs shot liveliness 0.13, rated 5, 1 tag match
+004  A010     V     C        00:00:12:00 00:00:14:01 00:00:09:19 00:00:11:20
+* FROM CLIP NAME: WP_rollout_helo_aerials.webm
+* WORKPRINT c004: moving: energy 0.3 vs shot liveliness 0.12, rated 4, 1 tag match
+005  A010     V     C        00:00:40:00 00:00:42:00 00:00:11:20 00:00:13:20
+* FROM CLIP NAME: WP_rollout_helo_aerials.webm
+* WORKPRINT c005: moving: energy 0.3 vs shot liveliness 0.07, rated 4, 1 tag match
+006  A009     V     C        00:00:23:00 00:00:25:00 00:00:13:20 00:00:15:20
+* FROM CLIP NAME: WP_rollout_a2_39b.webm
+* WORKPRINT c006: moving: energy 0.3 vs shot liveliness 0.16, rated 4
+007  A009     V     C        00:00:54:00 00:00:55:00 00:00:15:20 00:00:16:20
+* FROM CLIP NAME: WP_rollout_a2_39b.webm
+* WORKPRINT c007: waiting: energy 0.5 vs shot liveliness 0.41, rated 5, 1 tag match
+008  A007     V     C        00:01:02:00 00:01:03:01 00:00:16:20 00:00:17:21
+* FROM CLIP NAME: WP_pad39b_broll.webm
+* WORKPRINT c008: waiting: energy 0.5 vs shot liveliness 0.37, rated 4, 1 tag match
+009  A007     V     C        00:01:32:00 00:01:33:01 00:00:17:21 00:00:18:22
+* FROM CLIP NAME: WP_pad39b_broll.webm
+* WORKPRINT c009: waiting: energy 0.5 vs shot liveliness 0.18, rated 5, 1 tag match
+010  A007     V     C        00:01:52:00 00:01:53:00 00:00:18:22 00:00:19:22
+* FROM CLIP NAME: WP_pad39b_broll.webm
+* WORKPRINT c010: waiting: energy 0.5 vs shot liveliness 0.44, rated 3, 1 tag match
+011  A007     V     C        00:02:30:00 00:02:30:12 00:00:19:22 00:00:20:10
+* FROM CLIP NAME: WP_pad39b_broll.webm
+* WORKPRINT c012: waiting: energy 0.5 vs shot liveliness 0.00, rated 4, 1 tag match
+012  A006     V     C        00:00:12:09 00:00:12:21 00:00:20:10 00:00:20:22
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c013: waiting: energy 0.5 vs shot liveliness 0.37, rated 4, 1 tag match
+013  A007     V     C        00:03:10:00 00:03:10:13 00:00:20:22 00:00:21:11
+* FROM CLIP NAME: WP_pad39b_broll.webm
+* WORKPRINT c014: waiting: energy 0.5 vs shot liveliness 0.41, rated 5, 1 tag match
+014  A004     V     C        00:00:30:05 00:00:30:17 00:00:21:11 00:00:21:23
+* FROM CLIP NAME: WP_launch_causeway_slomo.webm
+* WORKPRINT c015: waiting: energy 0.5 vs shot liveliness 0.18, rated 5, 1 tag match
+015  A006     V     C        00:00:18:10 00:00:18:23 00:00:21:23 00:00:22:12
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c016: ignition: pinned by the editor
+016  A006     V     C        00:00:27:03 00:00:27:15 00:00:22:12 00:00:23:00
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c017: ignition: energy 1.0 vs shot liveliness 0.54, rated 5, 1 tag match
+017  A006     V     C        00:00:27:19 00:00:28:07 00:00:23:00 00:00:23:12
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c018: ignition: energy 1.0 vs shot liveliness 0.41, rated 5, 1 tag match
+018  A006     V     C        00:00:21:12 00:00:22:00 00:00:23:12 00:00:24:00
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c019: ignition: energy 1.0 vs shot liveliness 0.30, rated 5, 1 tag match
+019  A005     V     C        00:01:03:00 00:01:04:00 00:00:24:00 00:00:25:00
+* FROM CLIP NAME: WP_launch_cu_tracking.webm
+* WORKPRINT c020: ascent: energy 0.9 vs shot liveliness 0.09, rated 5, 1 tag match
+020  A006     V     C        00:00:24:22 00:00:25:22 00:00:25:00 00:00:26:00
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c021: ascent: energy 0.9 vs shot liveliness 0.38, rated 3, 1 tag match
+021  A004     V     C        00:00:44:00 00:00:49:00 00:00:26:00 00:00:28:00
+* FROM CLIP NAME: WP_launch_causeway_slomo.webm
+* WORKPRINT SPEED: [1.0, 4.0] (not applied in this EDL)
+* WORKPRINT c022: ascent: energy 0.9 vs shot liveliness 0.18, rated 4, 1 tag match
+022  A006     V     C        00:00:33:10 00:00:34:10 00:00:28:00 00:00:29:00
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c024: ascent: energy 0.9 vs shot liveliness 0.13, rated 4, 1 tag match
+023  A006     V     C        00:00:36:19 00:00:37:18 00:00:29:00 00:00:29:23
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c025: ascent: energy 0.9 vs shot liveliness 0.33, rated 3, 1 tag match
+024  A005     V     C        00:01:40:00 00:01:42:01 00:00:29:23 00:00:32:00
+* FROM CLIP NAME: WP_launch_cu_tracking.webm
+* WORKPRINT c026: ascent: energy 0.9 vs shot liveliness 0.12, rated 4, 1 tag match
+025  A006     V     C        00:01:27:05 00:01:29:05 00:00:32:00 00:00:34:00
+* FROM CLIP NAME: WP_launch_icps.webm
+* WORKPRINT c028: space: energy 0.1 vs shot liveliness 0.01, rated 3, 1 tag match
+026  A003     V     C        00:01:00:00 00:01:04:00 00:00:34:00 00:00:38:00
+* FROM CLIP NAME: WP_earthrise_orion.webm
+* WORKPRINT c029: space: pinned by the editor
+027  BL       V     C        00:00:00:00 00:00:03:00 00:00:38:00 00:00:41:00

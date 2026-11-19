@@ -1,0 +1,168 @@
+{
+ "title": "Return",
+ "duration": 40.988,
+ "music_in": 186.038,
+ "sections": [
+  {
+   "name": "asleep",
+   "from": 0.0,
+   "to": 7.825,
+   "energy": 0.1,
+   "every": 8,
+   "tags": [
+    "factory",
+    "detail"
+   ],
+   "avoid": [
+    "people"
+   ],
+   "move": "push",
+   "note": "inside the machine; two long holds across the track's near-silence"
+  },
+  {
+   "name": "moving",
+   "from": 7.825,
+   "to": 15.813,
+   "energy": 0.3,
+   "every": 4,
+   "tags": [
+    "rollout"
+   ],
+   "avoid": [
+    "people",
+    "launch",
+    "space",
+    "fire",
+    "ascent",
+    "pad"
+   ],
+   "note": "the stack leaves the building"
+  },
+  {
+   "name": "waiting",
+   "from": 15.813,
+   "to": 21.955,
+   "energy": 0.5,
+   "every": [
+    2,
+    1
+   ],
+   "tags": [
+    "pad"
+   ],
+   "avoid": [
+    "launch",
+    "space",
+    "factory",
+    "fire",
+    "ascent",
+    "day"
+   ],
+   "note": "dusk to night at the pad, cuts accelerating into the drop"
+  },
+  {
+   "name": "ignition",
+   "from": 21.955,
+   "to": 23.986,
+   "energy": 1.0,
+   "every": 1,
+   "tags": [
+    "fire"
+   ],
+   "avoid": [
+    "space",
+    "factory",
+    "pad",
+    "rollout"
+   ],
+   "note": "the drop"
+  },
+  {
+   "name": "ascent",
+   "from": 23.986,
+   "to": 31.986,
+   "energy": 0.9,
+   "every": 2,
+   "tags": [
+    "launch",
+    "ascent",
+    "onboard"
+   ],
+   "avoid": [
+    "space",
+    "factory",
+    "pad",
+    "rollout"
+   ]
+  },
+  {
+   "name": "space",
+   "from": 31.986,
+   "to": 37.988,
+   "energy": 0.15,
+   "every": 4,
+   "tags": [
+    "space"
+   ],
+   "avoid": [
+    "factory",
+    "pad",
+    "rollout",
+    "launch",
+    "fire"
+   ],
+   "note": "release"
+  }
+ ],
+ "pins": [
+  {
+   "at": 0.0,
+   "shot": "A001-40"
+  },
+  {
+   "at": 21.955,
+   "shot": "A006-09",
+   "in": 18.4
+  },
+  {
+   "at": 33.983,
+   "shot": "A003-01",
+   "in": 60.0
+  }
+ ],
+ "end_card": {
+  "dur": 3.0,
+  "text": "RETURN",
+  "style": {
+   "font": "display",
+   "size": 0.13,
+   "tracking": 0.14
+  }
+ },
+ "look": {
+  "preset": "steel",
+  "grain": 0.03,
+  "vignette": 0.22
+ },
+ "sounds": [
+  {
+   "at": 21.955,
+   "kind": "riser",
+   "db": -16,
+   "dur": 3.0
+  },
+  {
+   "at": 21.955,
+   "kind": "impact",
+   "db": -9
+  },
+  {
+   "at": 37.988,
+   "kind": "boom",
+   "db": -10
+  }
+ ],
+ "audio": {
+  "target_lufs": -14
+ }
+}

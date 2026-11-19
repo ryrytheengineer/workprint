@@ -1,0 +1,58 @@
+{
+ "workprint": "0.1.0",
+ "title": "Return",
+ "format": {"width": 1920, "height": 1080, "fps": 24.0},
+ "duration": 41.0,
+ "music": {"in": 186.038, "gain_db": 0.0, "fade_in": 0.0, "fade_out": 1.5},
+ "look": {"preset": "steel", "grain": 0.03, "vignette": 0.22},
+ "sections": [
+  {"name": "asleep", "from": 0.0, "to": 7.825, "energy": 0.1, "note": "inside the machine; two long holds across the track's near-silence"},
+  {"name": "moving", "from": 7.825, "to": 15.813, "energy": 0.3, "note": "the stack leaves the building"},
+  {"name": "waiting", "from": 15.813, "to": 21.955, "energy": 0.5, "note": "dusk to night at the pad, cuts accelerating into the drop"},
+  {"name": "ignition", "from": 21.955, "to": 23.986, "energy": 1.0, "note": "the drop"},
+  {"name": "ascent", "from": 23.986, "to": 31.986, "energy": 0.9},
+  {"name": "space", "from": 31.986, "to": 37.988, "energy": 0.15, "note": "release"}
+ ],
+ "cuts": [
+  {"id": "c001", "at": 0.0, "src": "A001", "in": 280.664, "shot": "A001-40", "note": "asleep: pinned by the editor", "move": {"zoom": [1.0, 1.05]}},
+  {"id": "c002", "at": 3.91667, "src": "A001", "in": 248.004, "shot": "A001-36", "note": "asleep: energy 0.1 vs shot liveliness 0.13, rated 4, 2 tag match", "move": {"zoom": [1.0, 1.05]}},
+  {"id": "c003", "at": 7.83333, "src": "A010", "in": 9.9, "shot": "A010-03", "note": "moving: energy 0.3 vs shot liveliness 0.13, rated 5, 1 tag match"},
+  {"id": "c004", "at": 9.79167, "src": "A009", "in": 54.051, "shot": "A009-06", "note": "moving: energy 0.3 vs shot liveliness 0.12, rated 4, 1 tag match"},
+  {"id": "c005", "at": 11.83333, "src": "A009", "in": 28.287, "shot": "A009-03", "note": "moving: energy 0.3 vs shot liveliness 0.07, rated 4, 1 tag match"},
+  {"id": "c006", "at": 13.83333, "src": "A001", "in": 57.94, "shot": "A001-09", "note": "moving: energy 0.3 vs shot liveliness 0.16, rated 4"},
+  {"id": "c007", "at": 15.83333, "src": "A007", "in": 144.687, "shot": "A007-05", "note": "waiting: energy 0.5 vs shot liveliness 0.41, rated 5, 1 tag match"},
+  {"id": "c008", "at": 16.83333, "src": "A006", "in": 11.291, "shot": "A006-05", "note": "waiting: energy 0.5 vs shot liveliness 0.37, rated 4, 1 tag match"},
+  {"id": "c009", "at": 17.875, "src": "A007", "in": 167.292, "shot": "A007-06", "note": "waiting: energy 0.5 vs shot liveliness 0.18, rated 5, 1 tag match"},
+  {"id": "c010", "at": 18.91667, "src": "A007", "in": 184.397, "shot": "A007-07", "note": "waiting: energy 0.5 vs shot liveliness 0.44, rated 3, 1 tag match"},
+  {"id": "c011", "at": 19.41667, "src": "A007", "in": 83.874, "shot": "A007-03", "note": "waiting: energy 0.5 vs shot liveliness 0.12, rated 4, 1 tag match"},
+  {"id": "c012", "at": 19.91667, "src": "A007", "in": 90.087, "shot": "A007-04", "note": "waiting: energy 0.5 vs shot liveliness 0.00, rated 4, 1 tag match"},
+  {"id": "c013", "at": 20.41667, "src": "A006", "in": 12.386, "shot": "A006-05", "note": "waiting: energy 0.5 vs shot liveliness 0.37, rated 4, 1 tag match"},
+  {"id": "c014", "at": 20.91667, "src": "A007", "in": 145.77, "shot": "A007-05", "note": "waiting: energy 0.5 vs shot liveliness 0.41, rated 5, 1 tag match"},
+  {"id": "c015", "at": 21.45833, "src": "A007", "in": 168.364, "shot": "A007-06", "note": "waiting: energy 0.5 vs shot liveliness 0.18, rated 5, 1 tag match"},
+  {"id": "c016", "at": 21.95833, "src": "A006", "in": 18.4, "shot": "A006-09", "note": "ignition: pinned by the editor"},
+  {"id": "c017", "at": 22.5, "src": "A006", "in": 27.137, "shot": "A006-14", "note": "ignition: energy 1.0 vs shot liveliness 0.54, rated 5, 1 tag match"},
+  {"id": "c018", "at": 23.0, "src": "A006", "in": 33.795, "shot": "A006-17", "note": "ignition: energy 1.0 vs shot liveliness 0.41, rated 5, 1 tag match"},
+  {"id": "c019", "at": 23.5, "src": "A006", "in": 29.396, "shot": "A006-15", "note": "ignition: energy 1.0 vs shot liveliness 0.30, rated 5, 1 tag match"},
+  {"id": "c020", "at": 24.0, "src": "A004", "in": 71.52, "shot": "A004-01", "note": "ascent: energy 0.9 vs shot liveliness 0.09, rated 5, 1 tag match"},
+  {"id": "c021", "at": 25.0, "src": "A006", "in": 50.907, "shot": "A006-27", "note": "ascent: energy 0.9 vs shot liveliness 0.38, rated 3, 1 tag match"},
+  {"id": "c022", "at": 26.0, "src": "A005", "in": 101.117, "shot": "A005-02", "note": "ascent: energy 0.9 vs shot liveliness 0.18, rated 4, 1 tag match"},
+  {"id": "c023", "at": 27.0, "src": "A006", "in": 21.852, "shot": "A006-11", "note": "ascent: energy 0.9 vs shot liveliness 0.19, rated 4, 1 tag match"},
+  {"id": "c024", "at": 28.0, "src": "A005", "in": 85.636, "shot": "A005-01", "note": "ascent: energy 0.9 vs shot liveliness 0.13, rated 4, 1 tag match"},
+  {"id": "c025", "at": 29.0, "src": "A006", "in": 43.64, "shot": "A006-23", "note": "ascent: energy 0.9 vs shot liveliness 0.33, rated 3, 1 tag match"},
+  {"id": "c026", "at": 29.95833, "src": "A006", "in": 25.257, "shot": "A006-13", "note": "ascent: energy 0.9 vs shot liveliness 0.12, rated 4, 1 tag match"},
+  {"id": "c027", "at": 31.0, "src": "A006", "in": 36.79, "shot": "A006-18", "note": "ascent: energy 0.9 vs shot liveliness 0.07, rated 4, 1 tag match"},
+  {"id": "c028", "at": 32.0, "src": "A002", "in": 31.457, "shot": "A002-01", "note": "space: energy 0.1 vs shot liveliness 0.01, rated 3, 1 tag match"},
+  {"id": "c029", "at": 34.0, "src": "A003", "in": 60.0, "shot": "A003-01", "note": "space: pinned by the editor"},
+  {"id": "c030", "at": 36.0, "src": "A006", "in": 93.068, "shot": "A006-44", "note": "space: energy 0.1 vs shot liveliness 0.00, rated 4, 1 tag match"},
+  {"id": "card", "at": 38.0, "card": {"bg": "#000000"}, "note": "end card"}
+ ],
+ "titles": [
+  {"id": "t_end", "at": 38.088, "dur": 2.9, "text": "RETURN", "style": {"font": "display", "size": 0.13, "tracking": 0.14}, "fade": [0.0, 0.4]}
+ ],
+ "sounds": [
+  {"at": 21.955, "kind": "riser", "db": -16, "dur": 3.0, "id": "s001"},
+  {"at": 21.955, "kind": "impact", "db": -9, "id": "s002"},
+  {"at": 37.988, "kind": "boom", "db": -10, "id": "s003"}
+ ],
+ "audio": {"target_lufs": -14}
+}

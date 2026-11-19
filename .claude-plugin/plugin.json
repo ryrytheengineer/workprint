@@ -1,0 +1,9 @@
+{
+  "name": "workprint",
+  "displayName": "Workprint",
+  "version": "0.1.0",
+  "description": "A cinematic editing engine: give Claude footage, music and a brief, get a finished film and an editable cut. By Motion & Matter.",
+  "author": { "name": "Motion & Matter" },
+  "license": "Apache-2.0",
+  "keywords": ["video", "editing", "film", "music", "ffmpeg"]
+}

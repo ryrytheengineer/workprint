@@ -1,0 +1,11 @@
+Workprint
+Copyright 2026 Motion & Matter
+
+This product bundles three typefaces, each under the SIL Open Font License 1.1.
+Their copyright notices and licence texts are in src/workprint/fonts/:
+
+  Archivo Black     Copyright 2017 The Archivo Black Project Authors
+  Instrument Serif  Copyright 2022 The Instrument Serif Project Authors
+  Inter             Copyright 2020 The Inter Project Authors
+
+See THIRD_PARTY.md for every dependency and how it is used.

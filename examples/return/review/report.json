@@ -1,0 +1,61 @@
+{
+ "render": "cut-v0048.mp4",
+ "verdict": "PASS",
+ "size": [
+  1920,
+  1080
+ ],
+ "fps": 24.0,
+ "duration": 41.0,
+ "frames": 984,
+ "cuts": {
+  "planned_hard": 26,
+  "confirmed": 21,
+  "barely_visible": 5,
+  "unplanned": 0
+ },
+ "music_sync": {
+  "cuts": 26,
+  "on_beat": 26,
+  "on_grid": 26,
+  "on_bar": 16,
+  "tolerance_s": 0.045,
+  "off_grid": []
+ },
+ "loudness": {
+  "lufs": -14.7,
+  "lra": 8.2,
+  "true_peak": -1.1
+ },
+ "pacing": {
+  "shots": 26,
+  "mean_s": 1.46,
+  "median_s": 1.0,
+  "shortest_s": 0.5,
+  "longest_s": 4.0
+ },
+ "findings": [
+  {
+   "level": "info",
+   "text": "the cut into c005 at 11.83s is barely visible: both sides look alike"
+  },
+  {
+   "level": "info",
+   "text": "the cut into c014 at 20.92s is barely visible: both sides look alike"
+  },
+  {
+   "level": "info",
+   "text": "the cut into c015 at 21.46s is barely visible: both sides look alike"
+  },
+  {
+   "level": "info",
+   "text": "the cut into c018 at 23.00s is barely visible: both sides look alike"
+  },
+  {
+   "level": "info",
+   "text": "the cut into c026 at 29.96s is barely visible: both sides look alike"
+  }
+ ],
+ "storyboard": "storyboard.jpg",
+ "cut_pairs": "cuts.jpg"
+}

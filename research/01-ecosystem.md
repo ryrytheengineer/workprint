@@ -1,0 +1,52 @@
+# The ecosystem: what exists and what we use
+
+Licence, star count and last-push date are *verified* from the GitHub REST API on 2026-11-18 (`data/github-metadata.json`). `NOASSERTION` means GitHub could not map the licence file to one SPDX id; the note says what the licence actually is. The GPU column and the verdicts are assessments from each project's documentation.
+
+The rule applied: take the smallest foundation that supports the best result, prefer permissive licences, keep anything that needs a GPU or large model downloads strictly optional, and do not add a dependency for something a few hundred lines of well-tested code can do in the same pass.
+
+| Project | What it does | Licence (API) | Stars | Last push | Needs a GPU | Verdict |
+|---|---|---|---|---|---|---|
+| [FFmpeg/FFmpeg](https://github.com/FFmpeg/FFmpeg) | Decode, encode, filter, resample, measure loudness | NOASSERTION | 67548 | 2026-11-19 | No | **Core, as an external program.** Workprint runs the user's `ffmpeg`/`ffprobe` and never bundles or links them, so FFmpeg's LGPL/GPL terms attach to the user's own install, not to this repository. (GitHub reports no single SPDX id because the licence depends on build options.) |
+| [Zulko/moviepy](https://github.com/Zulko/moviepy) | Video editing in Python on top of ffmpeg | MIT | 15166 | 2026-08-26 | No | **Not used.** Convenient, but its clip-composition model re-renders whole timelines and gives no control over caching, colour conversion or frame-exact timing. Workprint needs those, so it talks to ffmpeg directly. |
+| [remotion-dev/remotion](https://github.com/remotion-dev/remotion) | Programmatic video with React, rendered in headless Chrome | NOASSERTION | 74145 | 2026-11-18 | No | **Not used.** Strong for motion graphics. Rejected as a foundation: Node + Chrome toolchain, and the Remotion License requires a paid company licence above a small-company threshold, which an Apache-licensed tool should not impose on its users. A future optional exporter for title sequences is possible. |
+| [mifi/lossless-cut](https://github.com/mifi/lossless-cut) | Desktop app for trimming without re-encoding | GPL-2.0 | 46170 | 2026-11-14 | No | **Not used.** A GUI application, GPL-2.0, no library interface. The idea it embodies (join without re-encoding) is how Workprint assembles its render chunks, implemented with ffmpeg's concat demuxer. |
+| [AcademySoftwareFoundation/OpenTimelineIO](https://github.com/AcademySoftwareFoundation/OpenTimelineIO) | Interchange format and API for editorial timelines | Apache-2.0 | 2102 | 2026-11-10 | No | **Optional dependency** for `.otio` export. Apache-2.0, maintained under the Academy Software Foundation. Installed only when the export is requested. |
+| [Breakthrough/PySceneDetect](https://github.com/Breakthrough/PySceneDetect) | Shot boundary detection | BSD-3-Clause | 5575 | 2026-11-18 | No | **Studied, not a dependency.** Mature and BSD-3. Workprint's analysis pass has to compute motion, camera shift and exposure per frame in the same decode, so a small detector built on the same standard idea (adaptive threshold on histogram distance) lives in that pass instead. |
+| [facebookresearch/sam2](https://github.com/facebookresearch/sam2) | Promptable object segmentation and tracking in video | Apache-2.0 | 20187 | 2026-05-30 | Practically yes | **Roadmap (optional extra).** Apache-2.0. The right basis for subject mattes and cut-out transitions. Needs model weights of 150 MB to 900 MB and is slow on CPU, so it must stay opt-in. |
+| [m-bain/whisperX](https://github.com/m-bain/whisperX) | Speech transcripts with word-level timestamps | BSD-2-Clause | 25466 | 2026-11-12 | Recommended | **Roadmap (optional extra)** for dialogue-driven cutting and timed captions. BSD-2-Clause. Pulls in PyTorch and alignment models. |
+| [SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper) | Fast Whisper inference via CTranslate2 | MIT | 26857 | 2026-11-12 | No (CPU works) | **Roadmap (optional extra)**, the lighter of the two transcription options: MIT, runs acceptably on CPU. Preferred first integration for dialogue. |
+| [sczhou/ProPainter](https://github.com/sczhou/ProPainter) | Video inpainting / object removal | NOASSERTION | 7080 | 2026-10-27 | Yes | **Rejected for now.** The S-Lab License 1.0 permits non-commercial use only, which is incompatible with commercial editing work. Also GPU-bound. |
+| [PeterL1n/RobustVideoMatting](https://github.com/PeterL1n/RobustVideoMatting) | Human matting without a green screen | GPL-3.0 | 9620 | 2024-04-02 | Recommended | **Rejected as a dependency.** GPL-3.0 would constrain distribution, the model is for people specifically, and the repository has had no commits since April 2024. |
+| [xinntao/Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) | Upscaling | BSD-3-Clause | 37558 | 2024-08-06 | Yes for video | **Roadmap, low priority.** BSD-3. Useful for archival sources; last commit August 2024; far too slow for video on CPU. |
+| [adefossez/demucs](https://github.com/adefossez/demucs) | Music source separation into stems | MIT | 3569 | 2026-10-26 | Recommended | **Roadmap (optional extra).** MIT. Stems would let cuts follow drums alone and let the mix duck individual stems. Heavy (PyTorch). |
+| [Rikorose/DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) | Speech noise suppression | NOASSERTION | 5048 | 2026-11-06 | No | **Roadmap (optional extra)** for cleaning voice-over. Dual MIT/Apache-2.0 (GitHub shows no single id). |
+| [librosa/librosa](https://github.com/librosa/librosa) | Audio analysis library | ISC | 9015 | 2026-11-18 | No | **Studied, not a dependency.** ISC. Used in development as a cross-check for Workprint's own beat tracker. Not required at run time because it depends on numba/llvmlite, a frequent cause of install failures on new Python releases, and Workprint needs only a small part of it. |
+| [WyattBlue/auto-editor](https://github.com/WyattBlue/auto-editor) | Cuts silence from recordings | Unlicense | 5991 | 2026-11-18 | No | **Not used.** Solves a different problem (talking-head tightening). Public domain (Unlicense), now written in Nim. |
+| [modelscope/FunClip](https://github.com/modelscope/FunClip) | Transcript-based clipping | MIT | 6579 | 2026-11-01 | Recommended | **Not used.** Different problem (clip by transcript), tied to the ModelScope model hub. |
+| [tmoroney/auto-subs](https://github.com/tmoroney/auto-subs) | Subtitles inside Resolve/Premiere | MIT | 4577 | 2026-11-11 | No | **Not used.** Works inside an editing application; Workprint must run without one. |
+| [samuelgursky/davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp) | MCP server controlling DaVinci Resolve | MIT | 4201 | 2026-11-18 | No | **Not used.** Requires Resolve to be running. A possible later bridge for sending a Workprint cut into Resolve; EDL/OTIO export covers the hand-off for now. |
+| [bytedance/LatentSync](https://github.com/bytedance/LatentSync) | Lip-sync generation | Apache-2.0 | 6292 | 2025-06-20 | Yes | **Out of scope.** Generative; no commits since June 2025. |
+| [YaoFANGUK/video-subtitle-remover](https://github.com/YaoFANGUK/video-subtitle-remover) | Removes burned-in subtitles | Apache-2.0 | 13801 | 2026-06-30 | Recommended | **Out of scope** for the core. Workprint instead lets the editor rate shots with burned-in text 0 so they are never used. |
+| [browser-use/video-use](https://github.com/browser-use/video-use) | Agent skill that edits raw takes | MIT | 31264 | 2026-10-08 | No | **Prior art**, see `03-prior-art.md`. |
+| [CPJKU/beat_this](https://github.com/CPJKU/beat_this) | Neural beat and downbeat tracking | MIT | 490 | 2026-05-28 | Recommended | **Roadmap (optional extra).** MIT. Would replace the bar-line heuristic, which is Workprint's weakest measurement, when installed. |
+| [csteinmetz1/pyloudnorm](https://github.com/csteinmetz1/pyloudnorm) | ITU-R BS.1770 loudness in Python | MIT | 796 | 2026-01-04 | No | **Not used.** ffmpeg's `ebur128` filter gives the same measurement with no extra dependency. |
+| [PyAV-Org/PyAV](https://github.com/PyAV-Org/PyAV) | Python bindings to FFmpeg's libraries | BSD-3-Clause | 3337 | 2026-11-18 | No | **Not used.** Would make frame access faster than pipes, but ties the install to matching FFmpeg libraries. Pipes to the user's own ffmpeg are slower and far more robust across platforms. |
+| [opencv/opencv-python](https://github.com/opencv/opencv-python) | OpenCV wheels | MIT | 5456 | 2026-11-17 | No | **Core dependency** (`opencv-python-headless`). The wheel packaging is MIT; OpenCV itself is Apache-2.0. |
+| [python-pillow/Pillow](https://github.com/python-pillow/Pillow) | Imaging and text rendering | NOASSERTION | 13996 | 2026-11-18 | No | **Core dependency** for typography and contact sheets. MIT-CMU (HPND) licence. |
+| [numpy/numpy](https://github.com/numpy/numpy) | Arrays | NOASSERTION | 33409 | 2026-11-18 | No | **Core dependency.** BSD-3-Clause (plus bundled components under compatible licences). |
+| [scipy/scipy](https://github.com/scipy/scipy) | Signal processing | BSD-3-Clause | 15224 | 2026-11-18 | No | **Core dependency** for filters in the mix. BSD-3-Clause. |
+| [facebookresearch/co-tracker](https://github.com/facebookresearch/co-tracker) | Dense point tracking | NOASSERTION | 5206 | 2026-03-03 | Yes | **Not planned.** CC-BY-NC licence on the repository. |
+
+## The foundation chosen
+
+- **FFmpeg** as an external program for all decoding, encoding and metering.
+- **NumPy, SciPy, OpenCV (headless) and Pillow** as the only required Python packages. All have wheels for macOS, Windows and Linux on current Python versions and need no compiler.
+- **OpenTimelineIO** as an optional extra for timeline export.
+- Everything else is Workprint's own code. Model-based tools (SAM 2, faster-whisper, Demucs, beat_this) are on the roadmap as optional extras behind the same interfaces.
+
+## Verified licence findings that shaped decisions
+
+- ProPainter's `LICENSE` is the S-Lab License 1.0: "Redistribution and use for non-commercial purpose" only (read from the repository on 2026-11-18).
+- Remotion's `LICENSE.md` is the Remotion License: free for individuals and small companies, company licence required otherwise (read on 2026-11-18).
+- RobustVideoMatting is GPL-3.0 and LosslessCut GPL-2.0 (GitHub API).
+- The three bundled typefaces are under the SIL Open Font License 1.1; their licence files ship beside them.

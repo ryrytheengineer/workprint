@@ -1,0 +1,256 @@
+"""The cut: Workprint's persistent, human-readable edit manifest.
+
+A cut is a JSON document. Picture is a list of *slots*: each cut entry names the
+timeline time at which it starts (``at``) and what fills the frame until the next
+entry starts. Cut points are therefore anchored to the timeline (and so to the
+music), not to the lengths of the clips, which is how a music-driven edit is
+actually thought about: replacing a shot never moves a cut, and moving a cut
+changes exactly the two slots on either side of it.
+
+    {
+      "format":   {"width": 1920, "height": 1080, "fps": 24},
+      "duration": 38.0,
+      "music":    {"in": 12.4, "gain_db": 0, "fade_in": 0, "fade_out": 1.5},
+      "look":     {"preset": "steel", "grain": 0.03, "vignette": 0.2, "letterbox": 2.39},
+      "cuts":     [{"id": "c001", "at": 0.0, "src": "A003", "in": 14.2, "note": "opening wide"}, ...],
+      "titles":   [{"id": "t01", "at": 35.2, "dur": 2.5, "text": "NEVER THE SAME"}],
+      "sounds":   [{"id": "s01", "at": 22.0, "kind": "impact", "db": -10}]
+    }
+
+Optional per-cut fields: ``speed`` (number or [from, to]), ``move`` (zoom/x/y ramps),
+``fit``, ``focus``, ``grade``, ``fx``, ``t`` (transition into the slot), ``freeze``,
+``nat`` (dB of the clip's own sound), ``shot`` and ``note`` (for humans), or ``card``
+instead of ``src`` for a plain colour card.
+"""
+from __future__ import annotations
+
+import copy
+from pathlib import Path
+
+from . import __version__
+from .project import write_json
+
+LISTS = ("sections", "cuts", "titles", "sounds", "voice")
+SOLO_FRAMES = 12  # slots at least this long are cached as their own render chunk
+SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick", "boom")
+FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "mono", "shake")
+TRANSITIONS = ("cut", "dissolve", "dip", "flash")
+
+
+def frame_of(t: float, fps: float) -> int:
+    return int(round(t * fps + 1e-9))
+
+
+def new_cut(fmt: dict, duration: float, title: str = "") -> dict:
+    return {"workprint": __version__, "title": title, "format": dict(fmt), "duration": duration,
+            "music": None, "look": {}, "sections": [], "cuts": [], "titles": [], "sounds": []}
+
+
+def dump(cut: dict, path: Path) -> None:
+    write_json(Path(path), cut, compact_lists=LISTS)
+
+
+def next_id(cut: dict, key: str, prefix: str) -> str:
+    """A fresh id, one above the highest in use, so the id of a removed entry is not handed out again."""
+    used = {item["id"] for item in cut.get(key, []) if item.get("id")}
+    numbers = [int(i[len(prefix):]) for i in used if i.startswith(prefix) and i[len(prefix):].isdigit()]
+    n = max(numbers, default=0) + 1
+    while f"{prefix}{n:03d}" in used:
+        n += 1
+    return f"{prefix}{n:03d}"
+
+
+def normalize(cut: dict) -> dict:
+    """Sort cuts by time, snap times to the frame grid, and give every entry an id."""
+    fps = cut["format"]["fps"]
+    cut["duration"] = round(frame_of(cut["duration"], fps) / fps, 5)
+    for item in cut.get("cuts", []):
+        item["at"] = round(frame_of(item["at"], fps) / fps, 5)
+    cut["cuts"] = sorted(cut.get("cuts", []), key=lambda c: c["at"])
+    for key, prefix in (("cuts", "c"), ("titles", "t"), ("sounds", "s")):
+        cut.setdefault(key, [])
+        for item in cut[key]:
+            if not item.get("id"):
+                item["id"] = next_id(cut, key, prefix)
+    return cut
+
+
+def timeline(cut: dict) -> list[dict]:
+    """Slots in frames: [{"cut": entry, "f0": first frame, "f1": end frame (exclusive)}]."""
+    fps = cut["format"]["fps"]
+    total = frame_of(cut["duration"], fps)
+    cuts = sorted(cut["cuts"], key=lambda c: c["at"])
+    out = []
+    for i, entry in enumerate(cuts):
+        f0 = frame_of(entry["at"], fps)
+        f1 = frame_of(cuts[i + 1]["at"], fps) if i + 1 < len(cuts) else total
+        out.append({"cut": entry, "f0": f0, "f1": f1})
+    return out
+
+
+def speed_pair(entry: dict) -> tuple[float, float]:
+    speed = entry.get("speed", 1.0)
+    if isinstance(speed, (list, tuple)):
+        return float(speed[0]), float(speed[1])
+    return float(speed), float(speed)
+
+
+def source_span(entry: dict, frames: int, fps: float) -> tuple[float, float]:
+    """Source time range (seconds) a slot of ``frames`` frames reads."""
+    if entry.get("freeze"):
+        return entry["in"], entry["in"]
+    s0, s1 = speed_pair(entry)
+    return entry["in"], entry["in"] + (frames / fps) * (s0 + s1) / 2.0
+
+
+def transition_of(entry: dict) -> dict:
+    t = entry.get("t", "cut")
+    if isinstance(t, str):
+        t = {"type": t}
+    out = {"type": t.get("type", "cut"), "frames": int(t.get("frames", 0 if t.get("type", "cut") == "cut" else 8))}
+    if "color" in t:
+        out["color"] = t["color"]
+    return out
+
+
+def find(cut: dict, key: str, item_id: str) -> dict:
+    for item in cut.get(key, []):
+        if item.get("id") == item_id:
+            return item
+    raise KeyError(f"no {key[:-1]} with id {item_id!r}")
+
+
+def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
+    """Return (errors, warnings). Errors block rendering."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    fmt = cut.get("format") or {}
+    if not all(k in fmt for k in ("width", "height", "fps")):
+        return ["format needs width, height and fps"], warnings
+    fps = fmt["fps"]
+    if fmt["width"] % 2 or fmt["height"] % 2:
+        errors.append("format width and height must be even")
+    if cut.get("duration", 0) <= 0:
+        errors.append("duration must be positive")
+    cuts = cut.get("cuts") or []
+    if not cuts:
+        return errors + ["the cut has no picture: add at least one entry to cuts"], warnings
+    ids = [c.get("id") for c in cuts] + [t.get("id") for t in cut.get("titles", [])] + [s.get("id") for s in cut.get("sounds", [])]
+    for dup in sorted({i for i in ids if i and ids.count(i) > 1}):
+        errors.append(f"id {dup} is used more than once")
+    slots = timeline(cut)
+    if slots[0]["f0"] != 0:
+        errors.append(f"the first cut starts at {slots[0]['cut']['at']}s; picture must start at 0")
+    shots = project.shots() if project else []
+    for i, slot in enumerate(slots):
+        entry, frames = slot["cut"], slot["f1"] - slot["f0"]
+        name = entry.get("id", f"#{i + 1}")
+        if frames <= 0:
+            errors.append(f"{name}: starts at or after the next cut or the end of the film")
+            continue
+        if frames < 2:
+            warnings.append(f"{name}: only {frames} frame long")
+        t = transition_of(entry)
+        if t["type"] not in TRANSITIONS:
+            errors.append(f"{name}: unknown transition {t['type']!r}")
+        elif t["type"] == "dissolve":
+            if i == 0:
+                errors.append(f"{name}: the first cut cannot dissolve in")
+            elif t["frames"] >= frames:
+                errors.append(f"{name}: dissolve of {t['frames']} frames is longer than the slot")
+        for fx in entry.get("fx", []):
+            fx_name = fx if isinstance(fx, str) else fx.get("name")
+            if fx_name not in FX_NAMES:
+                errors.append(f"{name}: unknown fx {fx_name!r} (known: {', '.join(FX_NAMES)})")
+        if "card" in entry:
+            continue
+        if "src" not in entry or "in" not in entry:
+            errors.append(f"{name}: needs src and in, or card")
+            continue
+        s0, s1 = speed_pair(entry)
+        if min(s0, s1) <= 0 or max(s0, s1) > 16:
+            errors.append(f"{name}: speed must be within (0, 16]")
+            continue
+        if entry["in"] < 0:
+            errors.append(f"{name}: in-point is negative")
+        if not project:
+            continue
+        try:
+            source = project.source(entry["src"])
+        except Exception:
+            errors.append(f"{name}: unknown source {entry['src']!r}")
+            continue
+        a, b = source_span(entry, frames, fps)
+        if b > source["duration"] + 0.5 / fps:
+            errors.append(f"{name}: runs {b - source['duration']:.2f}s past the end of {entry['src']} ({source['duration']:.2f}s)")
+        # A slot should sit inside one logged shot; otherwise the source's own cut shows up mid-slot.
+        for shot in shots:
+            if shot["src"] == entry["src"] and a + 1.5 / fps < shot["start"] < b - 1.5 / fps:
+                warnings.append(f"{name}: crosses a cut inside {entry['src']} at {shot['start']:.2f}s "
+                                f"({shot['start'] - a:.2f}s into the slot)")
+    total = cut["duration"]
+    for title in cut.get("titles", []):
+        if not str(title.get("text", "")).strip():
+            errors.append(f"{title.get('id')}: title has no text")
+        if title.get("at", 0) < 0 or title.get("at", 0) + title.get("dur", 0) > total + 1e-6:
+            warnings.append(f"{title.get('id')}: title runs outside the film")
+    for sound in cut.get("sounds", []):
+        if "file" not in sound and sound.get("kind") not in SOUND_KINDS:
+            errors.append(f"{sound.get('id')}: unknown sound kind {sound.get('kind')!r} (known: {', '.join(SOUND_KINDS)})")
+        if not 0 <= sound.get("at", 0) <= total:
+            warnings.append(f"{sound.get('id')}: sound starts outside the film")
+    music = cut.get("music")
+    if music and project:
+        if not project.data.get("music"):
+            errors.append("the cut uses music but the project has none (workprint music --set FILE)")
+        elif music.get("in", 0) + total > project.data["music"]["duration"] + 0.05:
+            warnings.append("the music ends before the film does")
+    return errors, warnings
+
+
+def chunk_plan(cut: dict) -> list[dict]:
+    """Group slots into render chunks.
+
+    A slot of SOLO_FRAMES or more is its own chunk; runs of shorter slots (rapid cutting)
+    share one. Grouping depends only on each slot's own length, so an edit to one part of
+    the film never regroups another part.
+    """
+    chunks: list[dict] = []
+    run: list[int] = []
+    slots = timeline(cut)
+
+    def flush():
+        if run:
+            chunks.append({"slots": list(run), "f0": slots[run[0]]["f0"], "f1": slots[run[-1]]["f1"]})
+            run.clear()
+
+    for i, slot in enumerate(slots):
+        if slot["f1"] - slot["f0"] >= SOLO_FRAMES:
+            flush()
+            chunks.append({"slots": [i], "f0": slot["f0"], "f1": slot["f1"]})
+        else:
+            run.append(i)
+    flush()
+    return chunks
+
+
+def diff(old: dict, new: dict) -> dict:
+    """What changed between two versions of a cut, by id."""
+    def index(cut, key):
+        return {item.get("id"): item for item in cut.get(key, [])}
+
+    report: dict = {}
+    for key in ("cuts", "titles", "sounds"):
+        a, b = index(old, key), index(new, key)
+        entry = {"added": sorted(set(b) - set(a)), "removed": sorted(set(a) - set(b)),
+                 "changed": sorted(i for i in set(a) & set(b) if a[i] != b[i])}
+        if any(entry.values()):
+            report[key] = entry
+    other = [k for k in ("format", "duration", "music", "look", "audio") if old.get(k) != new.get(k)]
+    if other:
+        report["settings"] = other
+    return report
+
+
+def clone(cut: dict) -> dict:
+    return copy.deepcopy(cut)

@@ -1,0 +1,14 @@
+{
+  "name": "motion-and-matter",
+  "description": "Tools for filmmakers from Motion & Matter, an experimental creative lab.",
+  "owner": {
+    "name": "Motion & Matter"
+  },
+  "plugins": [
+    {
+      "name": "workprint",
+      "source": "./",
+      "description": "A cinematic editing engine: give Claude footage, music and a brief, get a finished film and an editable cut."
+    }
+  ]
+}

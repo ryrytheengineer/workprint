@@ -1,0 +1,19 @@
+{
+ "workprint": "0.1.0",
+ "name": "Return",
+ "format": {"width": 1920, "height": 1080, "fps": 24.0},
+ "sources": [
+  {"id": "A001", "path": "footage/WP_core_stage_join_broll.webm", "sig": "69b9262fdb673586", "duration": 403.826, "fps": 59.9401, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"},
+  {"id": "A002", "path": "footage/WP_crescent_moon_orion.webm", "sig": "af8df124bf6a3485", "duration": 186.27, "fps": 23.976, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"},
+  {"id": "A003", "path": "footage/WP_earthrise_orion.webm", "sig": "ffdcee9ad86de861", "duration": 142.042, "fps": 29.97, "width": 1920, "height": 1080, "has_audio": false, "matrix": "bt709"},
+  {"id": "A004", "path": "footage/WP_launch_causeway_slomo.webm", "sig": "8538ce6ca42c49e6", "duration": 115.869, "fps": 29.97, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"},
+  {"id": "A005", "path": "footage/WP_launch_cu_tracking.webm", "sig": "095de7311aed53b8", "duration": 341.49, "fps": 29.97, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"},
+  {"id": "A006", "path": "footage/WP_launch_icps.webm", "sig": "34342a4e1575fc06", "duration": 102.109, "fps": 59.9401, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"},
+  {"id": "A007", "path": "footage/WP_pad39b_broll.webm", "sig": "3af676c5912fbe4f", "duration": 221.0, "fps": 23.976, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"},
+  {"id": "A008", "path": "footage/WP_pad_post_launch.webm", "sig": "74df577da0ad7647", "duration": 54.045, "fps": 30.0, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"},
+  {"id": "A009", "path": "footage/WP_rollout_a2_39b.webm", "sig": "7f53262b721dc739", "duration": 91.848, "fps": 59.9401, "width": 3840, "height": 2160, "has_audio": true, "matrix": "bt709"},
+  {"id": "A010", "path": "footage/WP_rollout_helo_aerials.webm", "sig": "afbc7d21395fc9e8", "duration": 71.965, "fps": 60.0, "width": 1920, "height": 1012, "has_audio": true, "matrix": "bt709"},
+  {"id": "A011", "path": "footage/WP_test_stand_flush.webm", "sig": "8ef7bb079ab72e60", "duration": 64.712, "fps": 30.0, "width": 1920, "height": 1080, "has_audio": true, "matrix": "bt709"}
+ ],
+ "music": {"path": "footage/WP_mus_stormfront.mp3", "sig": "9374d0fb4d91d9a0", "duration": 334.054}
+}

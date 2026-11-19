@@ -1,0 +1,321 @@
+{
+ "fetched": "2026-11-18",
+ "source": "https://api.github.com/repos/<owner>/<repo>",
+ "repos": [
+  {
+   "repo": "FFmpeg/FFmpeg",
+   "license": "NOASSERTION",
+   "stars": 67548,
+   "pushed": "2026-11-19",
+   "archived": false,
+   "lang": "C",
+   "desc": "Mirror of https://git.ffmpeg.org/ffmpeg.git"
+  },
+  {
+   "repo": "Zulko/moviepy",
+   "license": "MIT",
+   "stars": 15166,
+   "pushed": "2026-08-26",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Video editing with Python"
+  },
+  {
+   "repo": "remotion-dev/remotion",
+   "license": "NOASSERTION",
+   "stars": 74145,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "TypeScript",
+   "desc": "\ud83c\udfa5      Make videos programmatically with React"
+  },
+  {
+   "repo": "mifi/lossless-cut",
+   "license": "GPL-2.0",
+   "stars": 46170,
+   "pushed": "2026-11-14",
+   "archived": false,
+   "lang": "TypeScript",
+   "desc": "The swiss army knife of lossless video/audio editing"
+  },
+  {
+   "repo": "AcademySoftwareFoundation/OpenTimelineIO",
+   "license": "Apache-2.0",
+   "stars": 2102,
+   "pushed": "2026-11-10",
+   "archived": false,
+   "lang": "C++",
+   "desc": "Open Source API and interchange format for editorial timeline information."
+  },
+  {
+   "repo": "Breakthrough/PySceneDetect",
+   "license": "BSD-3-Clause",
+   "stars": 5575,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": ":movie_camera: Python and OpenCV-based scene cut/transition detection program & library."
+  },
+  {
+   "repo": "facebookresearch/sam2",
+   "license": "Apache-2.0",
+   "stars": 20187,
+   "pushed": "2026-05-30",
+   "archived": false,
+   "lang": "Jupyter Notebook",
+   "desc": "The repository provides code for running inference with the Meta Segment Anything Model 2 (SAM 2), links for d"
+  },
+  {
+   "repo": "m-bain/whisperX",
+   "license": "BSD-2-Clause",
+   "stars": 25466,
+   "pushed": "2026-11-12",
+   "archived": false,
+   "lang": "Python",
+   "desc": "WhisperX:  Automatic Speech Recognition with Word-level Timestamps (& Diarization)"
+  },
+  {
+   "repo": "SYSTRAN/faster-whisper",
+   "license": "MIT",
+   "stars": 26857,
+   "pushed": "2026-11-12",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Faster Whisper transcription with CTranslate2"
+  },
+  {
+   "repo": "sczhou/ProPainter",
+   "license": "NOASSERTION",
+   "stars": 7080,
+   "pushed": "2026-10-27",
+   "archived": false,
+   "lang": "Python",
+   "desc": "[ICCV 2023] ProPainter: Improving Propagation and Transformer for Video Inpainting"
+  },
+  {
+   "repo": "PeterL1n/RobustVideoMatting",
+   "license": "GPL-3.0",
+   "stars": 9620,
+   "pushed": "2024-04-02",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Robust Video Matting in PyTorch, TensorFlow, TensorFlow.js, ONNX, CoreML!"
+  },
+  {
+   "repo": "xinntao/Real-ESRGAN",
+   "license": "BSD-3-Clause",
+   "stars": 37558,
+   "pushed": "2024-08-06",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Real-ESRGAN aims at developing Practical Algorithms for General Image/Video Restoration."
+  },
+  {
+   "repo": "adefossez/demucs",
+   "license": "MIT",
+   "stars": 3569,
+   "pushed": "2026-10-26",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Code for the paper Hybrid Spectrogram and Waveform Source Separation"
+  },
+  {
+   "repo": "Rikorose/DeepFilterNet",
+   "license": "NOASSERTION",
+   "stars": 5048,
+   "pushed": "2026-11-06",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Noise supression using deep filtering"
+  },
+  {
+   "repo": "librosa/librosa",
+   "license": "ISC",
+   "stars": 9015,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Python library for audio and music analysis"
+  },
+  {
+   "repo": "WyattBlue/auto-editor",
+   "license": "Unlicense",
+   "stars": 5991,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Nim",
+   "desc": "Effort free video editing!"
+  },
+  {
+   "repo": "modelscope/FunClip",
+   "license": "MIT",
+   "stars": 6579,
+   "pushed": "2026-11-01",
+   "archived": false,
+   "lang": "Python",
+   "desc": "FunASR-powered video transcription, subtitle generation, and LLM-assisted clipping tool with a local Gradio UI"
+  },
+  {
+   "repo": "tmoroney/auto-subs",
+   "license": "MIT",
+   "stars": 4577,
+   "pushed": "2026-11-11",
+   "archived": false,
+   "lang": "TypeScript",
+   "desc": "On-device subtitle generation that connects directly to DaVinci Resolve, Premiere, and After Effects."
+  },
+  {
+   "repo": "samuelgursky/davinci-resolve-mcp",
+   "license": "MIT",
+   "stars": 4201,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": "MCP server integration for DaVinci Resolve Studio"
+  },
+  {
+   "repo": "bytedance/LatentSync",
+   "license": "Apache-2.0",
+   "stars": 6292,
+   "pushed": "2025-06-20",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Taming Stable Diffusion for Lip Sync!"
+  },
+  {
+   "repo": "YaoFANGUK/video-subtitle-remover",
+   "license": "Apache-2.0",
+   "stars": 13801,
+   "pushed": "2026-06-30",
+   "archived": false,
+   "lang": "Python",
+   "desc": "\u57fa\u4e8eAI\u7684\u56fe\u7247/\u89c6\u9891\u786c\u5b57\u5e55\u53bb\u9664\u3001\u6587\u672c\u6c34\u5370\u53bb\u9664\uff0c\u65e0\u635f\u5206\u8fa8\u7387\u751f\u6210\u53bb\u5b57\u5e55\u3001\u53bb\u6c34\u5370\u540e\u7684\u56fe\u7247/\u89c6\u9891\u6587\u4ef6\u3002\u65e0\u9700\u7533\u8bf7\u7b2c\u4e09\u65b9API\uff0c\u672c\u5730\u5b9e\u73b0\u3002AI-based tool for removing hard-coded subtitles"
+  },
+  {
+   "repo": "browser-use/video-use",
+   "license": "MIT",
+   "stars": 31264,
+   "pushed": "2026-10-08",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Edit videos with coding agents"
+  },
+  {
+   "repo": "CPJKU/beat_this",
+   "license": "MIT",
+   "stars": 490,
+   "pushed": "2026-05-28",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Accurate and general beat tracker"
+  },
+  {
+   "repo": "csteinmetz1/pyloudnorm",
+   "license": "MIT",
+   "stars": 796,
+   "pushed": "2026-01-04",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Flexible audio loudness meter in Python with implementation of ITU-R BS.1770-4 loudness algorithm"
+  },
+  {
+   "repo": "PyAV-Org/PyAV",
+   "license": "BSD-3-Clause",
+   "stars": 3337,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": "\ufeff\ufeffPythonic bindings for FFmpeg's libraries."
+  },
+  {
+   "repo": "opencv/opencv-python",
+   "license": "MIT",
+   "stars": 5456,
+   "pushed": "2026-11-17",
+   "archived": false,
+   "lang": "Shell",
+   "desc": "Automated CI toolchain to produce precompiled opencv-python, opencv-python-headless, opencv-contrib-python and"
+  },
+  {
+   "repo": "python-pillow/Pillow",
+   "license": "NOASSERTION",
+   "stars": 13996,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Python Imaging Library (fork)"
+  },
+  {
+   "repo": "numpy/numpy",
+   "license": "NOASSERTION",
+   "stars": 33409,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": "The fundamental package for scientific computing with Python."
+  },
+  {
+   "repo": "scipy/scipy",
+   "license": "BSD-3-Clause",
+   "stars": 15224,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": "SciPy library main repository"
+  },
+  {
+   "repo": "facebookresearch/co-tracker",
+   "license": "NOASSERTION",
+   "stars": 5206,
+   "pushed": "2026-03-03",
+   "archived": false,
+   "lang": "Jupyter Notebook",
+   "desc": "CoTracker is a model for tracking any point (pixel) on a video."
+  },
+  {
+   "repo": "Vincentwei1021/video-shotcraft",
+   "license": "Apache-2.0",
+   "stars": 21334,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "TypeScript",
+   "desc": "AI video skill for Claude Code & Codex \u2014 cinematic, editable product promos with Remotion: 124 shot recipe car"
+  },
+  {
+   "repo": "kajisho5/ffmpeg-skill",
+   "license": "MIT",
+   "stars": 8033,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "Python",
+   "desc": "Local video editor for coding agents: 42 FFmpeg tools with a machine-readable contract and an MCP server, for "
+  },
+  {
+   "repo": "barefootford/buttercut",
+   "license": "NOASSERTION",
+   "stars": 626,
+   "pushed": "2026-11-12",
+   "archived": false,
+   "lang": "Ruby",
+   "desc": "Edit Video with Claude Code"
+  },
+  {
+   "repo": "talsiach/take-one",
+   "license": "MIT",
+   "stars": 368,
+   "pushed": "2026-11-09",
+   "archived": false,
+   "lang": "HTML",
+   "desc": "Claude Code skill that makes launch videos, ads and music videos from one line: idea, script, visuals, voice, "
+  },
+  {
+   "repo": "ChatCut-Inc/agent-plugin",
+   "license": "Apache-2.0",
+   "stars": 1060,
+   "pushed": "2026-11-18",
+   "archived": false,
+   "lang": "JavaScript",
+   "desc": "AI video editor for agents. ChatCut plugin and MCP server for Codex, ChatGPT, Claude Code, Cursor, Grok, Gemin"
+  }
+ ]
+}
