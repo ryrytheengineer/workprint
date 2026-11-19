@@ -58,3 +58,6 @@ Only the changed chunks render; the rest of the picture is reused bit for bit.
 | `matte setup [--yes]` | Install the optional cut-out model |
 | `set k004 set='{"behind": true}'` | Put a caption behind the subject |
 | `still FILE [--dur 4] [--move drift\|push\|parallax]` | Turn a photograph into footage |
+
+| `new hud kind=track\|counter\|rail at=T dur=S ...` / `set h001 ...` / `remove h001` | Instrument overlays (0.4) |
+| `set v001 treat=restore` | Noise reduction for an old recording (0.4) |

@@ -28,6 +28,7 @@ from .manifest import chunk_plan, intercut_frames, source_span, speed_pair, time
 from .titles import Title, opacity_at, schedule
 from .titles import make as make_title
 from .matte import over as matte_over
+from .hud import Hud
 
 RENDER_REV = 1  # bump when a change to this module alters pixels: invalidates every cached chunk
 
@@ -69,6 +70,7 @@ class Context:
         self._titles = None
         self._captions = None
         self._matte = None
+        self.hud = Hud(cut.get("hud"), self.fps, self.W, self.H)
 
     @property
     def finish(self) -> Finish:
@@ -140,6 +142,9 @@ class Context:
                     (Path(item["spec"]["image"]) for item in self.title_plan if item["spec"].get("image") and item["f0"] < f1 and item["f1"] > f0)]
         if pictures:
             payload["pictures"] = pictures
+        instruments = self.hud.key_part(f0, f1)
+        if instruments:
+            payload["hud"] = instruments
         if any(self.behind_at(f) for f in range(f0, f1)):
             from .matte import MODEL
             payload["matte"] = MODEL["name"]
@@ -374,6 +379,8 @@ def render_chunk(ctx: Context, index: int) -> dict:
                         frame = _toward(frame, after.get("color", "#000000"), (local - (n - fade_out) + 1) / (fade_out + 1))
                     frame = ctx.finish.apply(frame, frames)
                     absolute = slot["f0"] + local
+                    if ctx.hud.items:
+                        frame = ctx.hud.draw(frame, absolute)
                     layers = [False]
                     clean = None
                     if ctx.behind_at(absolute):  # words behind the subject: draw them, then lay the subject back on top

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "workprint"
-version = "0.3.0"
+version = "0.4.0"
 description = "A cinematic editing engine for Claude Code: footage, music and a brief in, a finished film and an editable cut out."
 readme = "README.md"
 requires-python = ">=3.10"

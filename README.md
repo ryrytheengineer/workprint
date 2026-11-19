@@ -8,7 +8,7 @@ Workprint is for editors, filmmakers and creative directors who already know wha
 good cut is and want the distance between an idea and a watchable first cut to be
 minutes. It is not a template engine or a podcast clipper.
 
-By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.3.0.
+By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.4.0.
 
 ![Storyboard of the example film](examples/return/review/storyboard.jpg)
 
@@ -44,6 +44,9 @@ How it was made, shot by shot: [`examples/return/`](examples/return/).*
   on them, not just on the beat grid.
 - **Has a few signature effects.** X-ray (plain, scanning, pulsing, flickering), a slot that
   flickers back and forth to a second shot, eased speed ramps and smooth slow motion.
+- **Draws instruments.** Brackets or a reticle that track something through a shot with a label
+  and live readout, a counter in fixed-width figures, and a frame rail with timecode.
+- **Cleans an old recording.** Noise reduction for hiss and hum under a voice (`treat=restore`).
 - **Closes with the brand.** An end card with a stacked title and a logo and wordmark from
   PNG or SVG files.
 - **Puts words behind the subject**, and turns a photograph into a shot with depth, using an
@@ -111,6 +114,9 @@ workprint -p film voice throw v001 --word will       # echo a word into the gap 
 workprint -p film roll c014 --on kick                # land a cut on the nearest kick
 workprint -p film set c009 fx='[{"name":"xray-scan"}]'
 workprint -p film intercut c012 --shot A004-07 --every 2
+workprint -p film new hud kind=track at=12 dur=2.5 box='[0.42,0.2,0.16,0.6]' label="SLS"
+workprint -p film new hud kind=counter at=3 dur=5 from=0 to=3900 suffix=" HRS"
+workprint -p film set v001 treat=restore              # noise reduction for an old recording
 workprint -p film endcard --text "NEVER|THE SAME" --logo mark.svg --wordmark word.svg
 workprint -p film still photo.jpg --move parallax    # a photograph becomes footage
 workprint -p film render && workprint -p film check
@@ -142,7 +148,7 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 
 | | |
 |---|---|
-| Test suite | 53 tests, all passing: 50 on synthetic media with exact expected answers, 3 that run only where an optional tool is installed (speech model, cut-out model, SVG converter) |
+| Test suite | 57 tests, all passing: 54 on synthetic media with exact expected answers, 3 that run only where an optional tool is installed (speech model, cut-out model, SVG converter) |
 | Example film | 11 clips (30 minutes of 1080p footage) to a checked 41 s film, end to end |
 | Shot logging | 146 shots found in 30 minutes of footage, 4 to 6 times faster than real time |
 | Render | 1080p at about 16 frames per second, 960x540 proxy at 23 to 30, 341 MB peak memory |
@@ -155,6 +161,8 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 | Sound | Treatments, carve, throws and the voice-level meter are tested by measurement (band levels, echo timing, peak ceiling), not by ear |
 | Drum hits | Exact on a synthetic kit. On one real 120 BPM track: snare hits 100% and hat hits 80% on the 16th-note grid, kick hits 67% |
 | Effects | X-ray variants inspected on a real frame; flicker and smooth slow motion verified frame by frame on synthetic clips |
+| Noise reduction | Real speech with hiss and hum added 18 dB under it: the voice went from 19 to 39 dB above the noise floor and the transcript was unchanged. Not tested on a recording that was noisy to begin with |
+| HUD | Tracker held a subject moving 117 px across synthetic frames to within 5 px; reticle, rail and counter rendered on a real shot and inspected |
 | End card | Laid out and rendered with real SVG logos, inspected, passed by the checker |
 | Mattes | Inspected on three real frames and one rendered shot (a word behind a rocket); about 1.6 s per matted frame on 2 CPU cores |
 | Captions and versions | Four caption styles and a 9:16 re-render of a 41 s trial film, inspected frame by frame and passed by the checker. No example film ships with them yet |
@@ -185,6 +193,11 @@ Read these before relying on it.
 - **Mattes find "the subject", not your subject.** The cut-out model guesses what the picture
   is of, softens on dark or busy footage, does not track a chosen object, and is slow.
   Parallax on stills fills what was behind the subject crudely; keep those moves small.
+- **The HUD tracker follows texture, not meaning.** It holds on a clear, steady subject and
+  drifts on fast, blurred or turning ones. It has been tested on synthetic motion and one
+  nearly static real shot. Keep a track inside one shot.
+- **Noise reduction needs pauses to learn the noise from**, handles only steady noise, and
+  thins the voice if pushed. Listen to it.
 - **Plain x-ray inverts the picture**, so dark footage turns white. Use `"positive": true` there.
 - **Reframing is a proposal** made from detail and movement, not from recognising a
   subject. It will be wrong on some shots; the review sheet is there to be read.

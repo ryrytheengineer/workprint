@@ -98,7 +98,7 @@ def insert(cut: dict, project, at: float, shot: str | None = None, src: str | No
 
 def remove(cut: dict, item_id: str) -> str:
     """Remove a cut (the slot before it extends), a title, a sound, a caption or a placed voice."""
-    for key in ("cuts", "titles", "sounds", "captions", "voice"):
+    for key in ("cuts", "titles", "sounds", "captions", "voice", "hud"):
         items = cut.get(key, [])
         for k, item in enumerate(items):
             if item.get("id") == item_id:
@@ -133,7 +133,7 @@ def shift(cut: dict, start: float, by: float) -> str:
     moved = [c for c in cut["cuts"] if c["at"] >= start - 0.5 / fps and c["at"] > 0]
     if moved and before and min(c["at"] for c in moved) + by <= max(before):
         raise ReviseError("that shift would move a cut past the one before it")
-    for key in ("cuts", "titles", "sounds", "voice", "captions"):
+    for key in ("cuts", "titles", "sounds", "voice", "captions", "hud"):
         for item in cut.get(key) or []:
             if item["at"] >= start - 0.5 / fps and not (key == "cuts" and item["at"] == 0):
                 item["at"] = round(item["at"] + by, 5)
@@ -156,7 +156,7 @@ def assign(cut: dict, target: str, pairs: list[str]) -> str:
     elif target == "film":
         item = cut
     else:
-        item = next((x for key in ("cuts", "titles", "sounds", "captions", "voice") for x in cut.get(key) or []
+        item = next((x for key in ("cuts", "titles", "sounds", "captions", "voice", "hud") for x in cut.get(key) or []
                      if x.get("id") == target), None)
         if item is None:
             raise ReviseError(f"nothing with id {target!r}")
@@ -173,13 +173,15 @@ def assign(cut: dict, target: str, pairs: list[str]) -> str:
 
 def add(cut: dict, kind: str, pairs: list[str]) -> str:
     """Add a title, a sound or a caption from key=value pairs."""
-    key, prefix = {"title": ("titles", "t"), "sound": ("sounds", "s"), "caption": ("captions", "k")}[kind]
+    key, prefix = {"title": ("titles", "t"), "sound": ("sounds", "s"), "caption": ("captions", "k"), "hud": ("hud", "h")}[kind]
     item = {"id": next_id(cut, key, prefix)}
     cut.setdefault(key, []).append(item)
     assign(cut, item["id"], pairs)
     if "at" not in item:
         raise ReviseError(f"a {kind} needs at=<seconds>")
     if kind == "title":
+        item.setdefault("dur", 2.0)
+    if kind == "hud":
         item.setdefault("dur", 2.0)
     if kind == "caption":
         item.setdefault("style", "line")

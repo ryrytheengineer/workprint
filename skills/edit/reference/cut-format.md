@@ -125,3 +125,10 @@ were obtained: `transcribed+aligned`, `aligned`, `spread`, `imported`, `phrases-
 - Titles may carry `image` (PNG or SVG path, relative to the project) instead of `text`, with `style`
   `width` or `height`, `pos`, `align`, `opacity`, `color` (redraw a one-colour logo in that colour).
 - `behind: true` in a caption's `set` or a title's `style` draws it behind the subject.
+
+## Added in 0.4
+
+- `hud` list: `{"id": "h001", "kind": "track", "at": 12.0, "dur": 2.5, "box": [x, y, w, h], "label": "...", "readout": true, "style": "corners|box|reticle"}`,
+  `{"kind": "counter", "from": 0, "to": 3900, "decimals": 0, "prefix": "", "suffix": " HRS", "pos": [0.08, 0.9], "scale": 1.6, "ease": "linear"}`,
+  `{"kind": "rail", "label": "...", "timecode": true, "margin": 0.055}`. All accept `color`, `opacity`, `size`, `weight`.
+- Voice `treat`: `restore`, or `denoise` (0..1) inside a treatment dict.

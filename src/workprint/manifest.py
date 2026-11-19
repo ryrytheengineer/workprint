@@ -34,7 +34,7 @@ from pathlib import Path
 from . import __version__
 from .project import write_json
 
-LISTS = ("sections", "cuts", "titles", "sounds", "voice", "captions")
+LISTS = ("sections", "cuts", "titles", "sounds", "voice", "captions", "hud")
 SOLO_FRAMES = 12  # slots at least this long are cached as their own render chunk
 SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick", "boom")
 FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "xray-scan", "xray-pulse", "xray-flicker", "mono", "shake")
@@ -75,8 +75,8 @@ def normalize(cut: dict) -> dict:
     cut["cuts"] = sorted(cut.get("cuts", []), key=lambda c: c["at"])
     if cut.get("captions"):
         cut["captions"] = sorted(cut["captions"], key=lambda c: c.get("at", 0.0))
-    for key, prefix in (("cuts", "c"), ("titles", "t"), ("sounds", "s"), ("voice", "v"), ("captions", "k")):
-        if key in ("voice", "captions") and not cut.get(key):
+    for key, prefix in (("cuts", "c"), ("titles", "t"), ("sounds", "s"), ("voice", "v"), ("captions", "k"), ("hud", "h")):
+        if key in ("voice", "captions", "hud") and not cut.get(key):
             continue
         cut.setdefault(key, [])
         for item in cut[key]:
@@ -168,7 +168,7 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
     cuts = cut.get("cuts") or []
     if not cuts:
         return errors + ["the cut has no picture: add at least one entry to cuts"], warnings
-    ids = [c.get("id") for c in cuts] + [x.get("id") for key in ("titles", "sounds", "voice", "captions") for x in cut.get(key) or []]
+    ids = [c.get("id") for c in cuts] + [x.get("id") for key in ("titles", "sounds", "voice", "captions", "hud") for x in cut.get(key) or []]
     for dup in sorted({i for i in ids if i and ids.count(i) > 1}):
         errors.append(f"id {dup} is used more than once")
     slots = timeline(cut)
@@ -263,6 +263,11 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
             treatment(item.get("treat"))
         except ValueError as exc:
             errors.append(f"{name}: {exc}")
+    if cut.get("hud"):
+        from .hud import problems as hud_problems
+        more_errors, more_warnings = hud_problems(cut)
+        errors += more_errors
+        warnings += more_warnings
     if cut.get("captions"):
         from .captions import problems
         more_errors, more_warnings = problems(cut)

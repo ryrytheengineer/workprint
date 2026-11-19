@@ -115,6 +115,12 @@ Use these when the brief or the user asks for them, not by default. Each is one 
   (1 to 3 frames) read as a flicker; use it at one moment, not across a section.
 - **Speed.** `speed` [from, to] with `ramp` (linear, in, out, inout) eases the change; `interp` `blend` or
   `flow` makes slow motion smooth instead of stepped. Check the result on a filmstrip: both can smear.
+- **Instruments.** `workprint new hud kind=track at=12 dur=2.5 box='[x,y,w,h]' label="..."` draws brackets
+  that follow what is in the box (fractions of the frame, read off a frame you have looked at); `style=box|reticle`,
+  `readout=true`. `kind=counter from=0 to=3900 suffix=" HRS"` runs a number; `kind=rail label=... timecode=true`
+  frames the picture. Keep a track inside one shot and on a subject with clear detail; check a frame near its end.
+- **An old or noisy recording.** `workprint set v001 treat=restore` reduces steady hiss and hum. It needs pauses in
+  the recording to learn the noise from. You cannot hear whether it thinned the voice: ask the user to listen.
 - **End card.** `workprint endcard --text "LINE ONE|LINE TWO" --logo mark.svg --wordmark word.svg [--tint]`.
   Use the brand's own files, supplied by the user; do not redraw a logo.
 - **Words behind the subject.** `workprint set k004 set='{"behind": true}'` (titles: `style.behind`). Needs

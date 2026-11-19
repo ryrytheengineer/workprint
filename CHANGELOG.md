@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 (2026-11-19)
+
+- HUD overlays (`hud` list, `workprint new hud`): tracking brackets, box or reticle with
+  label and live readout; counters in fixed-width figures; a frame rail with timecode.
+- Noise reduction for voice recordings (`treat=restore`, or `denoise` in a treatment).
+
 ## 0.3.0 (2026-11-19)
 
 - Voice treatment (`treat`: clear, hall, radio), a speech-band carve in the music

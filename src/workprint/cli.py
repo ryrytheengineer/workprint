@@ -821,8 +821,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = revision("set", "set fields on a cut/title/sound/caption/voice id, or on look, music, audio, film")
     p.add_argument("target")
     p.add_argument("pairs", nargs="+", help="key=value (JSON or text); key= deletes")
-    p = revision("new", "add a title, sound or caption: new title at=3 text=HELLO")
-    p.add_argument("kind", choices=["title", "sound", "caption"])
+    p = revision("new", "add a title, sound, caption or hud element: new title at=3 text=HELLO")
+    p.add_argument("kind", choices=["title", "sound", "caption", "hud"])
     p.add_argument("pairs", nargs="+")
 
     p = command("profile", cmd_profile, "measure reference films into an editable style profile")
