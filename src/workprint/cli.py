@@ -271,6 +271,22 @@ def cmd_voice(args) -> int:
             elif analysis:
                 _voice_report(entry, analysis)
         return 0
+    if args.action == "throw":  # echo one word of a placed voice, in time with the music
+        cut = project.cut()
+        item = next((v for v in cut.get("voice") or [] if v.get("id") == args.target), None)
+        if item is None or not args.word:
+            raise ValueError("voice throw needs a placed voice id (v001) and --word WORD")
+        name, _, nth = args.word.partition(":")
+        said = [w for w in voice.placed(project, cut, args.target) if voice.plain(w["w"]) == voice.plain(name)]
+        if not said or int(nth or 1) > len(said):
+            raise ValueError(f"{args.word!r} is not said in {args.target}")
+        word = said[int(nth or 1) - 1]
+        tempo = (project.music() or {}).get("tempo")
+        delay = round(args.beats * 60.0 / float(tempo), 4) if tempo else 0.3
+        item.setdefault("throws", []).append({"word": word["w"], "at": word["s"], "dur": round(word["e"] - word["s"], 3),
+                                              "delay": delay, "repeats": args.repeats})
+        print(f"{args.target}: {word['w']!r} at {word['s']:.2f}s echoes {args.repeats} times, {delay:.3f}s apart")
+        return _save(project, cut, args.message or f"echo throw on {word['w']!r}", args.force)
     # place: put (part of) a voice on the timeline so that its first word starts at --at
     from .manifest import next_id
     entry, log = project.voice(args.target or ""), project.voice_log(args.target or "")
@@ -565,7 +581,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--set", help="use this file as the project's music")
     p.add_argument("--json", action="store_true")
     p = command("voice", cmd_voice, "read a voice-over (phrases, words, times) and place it: voice setup|add|show|place")
-    p.add_argument("action", choices=["setup", "add", "show", "place"])
+    p.add_argument("action", choices=["setup", "add", "show", "place", "throw"])
     p.add_argument("target", nargs="?", help="a file for add; a voice id (V01) for show and place")
     p.add_argument("--script", help="the words spoken, as text or @file: used as the spelling, and for timing if nothing better")
     p.add_argument("--words", help="word times you already have: Whisper-style JSON, SRT or VTT")
@@ -578,6 +594,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--to", dest="end", type=float)
     p.add_argument("--phrase", help="place: use phrase N, or N-M")
     p.add_argument("--gain", type=float, default=0.0)
+    p.add_argument("--word", help="throw: the word to echo into the gap after it; word:2 for the second time it is said")
+    p.add_argument("--beats", type=float, default=0.5, help="throw: time between echoes, in beats of the music")
+    p.add_argument("--repeats", type=int, default=3)
     p.add_argument("-m", "--message")
     p.add_argument("--force", action="store_true")
     p = command("captions", cmd_captions, "make captions from the placed voice")

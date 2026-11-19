@@ -208,8 +208,13 @@ def check(project, cut: dict, render_path, write_review: bool = True) -> dict:
         hard = [s["f0"] / fps for s in slots[1:] if transition_of(s["cut"])["type"] in ("cut", "flash")]
         inside = [(t, w) for t in hard for w in spoken if w["s"] + 0.06 < t < w["e"] - 0.06]
         led = sum(1 for a, _ in phrases if any(-0.25 <= a - t <= 0.12 for t in [0.0] + hard))
+        from . import mix as mix_mod
+        balance = (mix_mod.build(project, cut) or {}).get("voice_over_music_db") if cut.get("voice") else None
         speech = {"words": len(spoken), "phrases": len(phrases), "phrases_opening_on_a_cut": led, "cuts_inside_words": len(inside),
-                  "captions": len(cut.get("captions") or [])}
+                  "captions": len(cut.get("captions") or []), "voice_over_music_db": balance}
+        if balance is not None and balance < 6.0:
+            note("warn", f"the voice sits only {balance:+.1f} dB above the music where they compete: it may be hard to follow. "
+                         "Try `workprint set audio carve_db=-8`, a `treat=clear` on the voice, or more gain_db")
         for t, w in inside[:8]:
             note("info", f"the cut at {t:.2f}s lands inside the word {w['w']!r} ({w['s']:.2f}-{w['e']:.2f}s)")
         mx, my = 0.04 * fmt["width"], 0.04 * fmt["height"]
@@ -269,7 +274,8 @@ def summary(report: dict) -> str:
     v = report.get("speech")
     if v:
         lines.append(f"voice: {v['words']} words in {v['phrases']} phrases, {v['phrases_opening_on_a_cut']} phrases open on a cut, "
-                     f"{v['cuts_inside_words']} cuts land inside a word, {v['captions']} captions")
+                     f"{v['cuts_inside_words']} cuts land inside a word, {v['captions']} captions"
+                     + (f", voice {v['voice_over_music_db']:+.1f} dB over the music" if v.get("voice_over_music_db") is not None else ""))
     p = report["pacing"]
     lines.append(f"pacing: {p['shots']} shots, median {p['median_s']}s, shortest {p['shortest_s']}s, longest {p['longest_s']}s")
     for f in report["findings"]:

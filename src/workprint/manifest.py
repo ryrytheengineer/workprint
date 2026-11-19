@@ -215,6 +215,11 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
             errors.append(f"{name}: unknown voice {item['src']!r} (workprint voice add FILE)")
         if not 0 <= item.get("at", 0) <= total:
             warnings.append(f"{name}: voice starts outside the film")
+        try:
+            from .vox import settings as treatment
+            treatment(item.get("treat"))
+        except ValueError as exc:
+            errors.append(f"{name}: {exc}")
     if cut.get("captions"):
         from .captions import problems
         more_errors, more_warnings = problems(cut)

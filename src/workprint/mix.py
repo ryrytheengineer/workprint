@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 
-from . import ff, sound
+from . import ff, sound, vox
 from .manifest import speed_pair, timeline
 
 MIX_REV = 2
@@ -103,12 +103,28 @@ def build(project, cut: dict) -> dict | None:
             file = Path(item["file"])
             file = file if file.is_absolute() else project.root / file
         audio = ff.read_audio(file, SR, 1, item.get("in", 0.0), item.get("dur")).astype(np.float64)
-        audio = _fades(np.repeat(audio, 2, axis=1), 0.02, 0.05) * sound.db(item.get("gain_db", 0.0))
+        shaped = vox.settings(item.get("treat"))
+        if shaped:
+            audio = vox.treat(_fades(audio, 0.02, 0.05)[:, 0], SR, shaped) * sound.db(item.get("gain_db", 0.0))
+        else:
+            audio = _fades(np.repeat(audio, 2, axis=1), 0.02, 0.05) * sound.db(item.get("gain_db", 0.0))
         _place(voice_bus, audio, item["at"])
+    balance = None
     if voice_bus.any():  # duck the music under speech
         envelope = np.sqrt(np.maximum(uniform_filter1d((voice_bus.mean(1)) ** 2, size=int(0.25 * SR)), 0.0))
         active = np.clip((20 * np.log10(envelope + 1e-9) + 50.0) / 14.0, 0.0, 1.0)
         music_bus *= (10.0 ** (float(settings.get("duck_db", -6.0)) * active / 20.0))[:, None]
+        loudness_db = 20 * np.log10(envelope + 1e-9)
+        present = np.clip((loudness_db - (loudness_db.max() - 30.0)) / 8.0, 0.0, 1.0)  # against the voice's own level
+        music_bus = vox.carve(music_bus, present, SR, float(settings.get("carve_db", 0.0)))
+        speaking = present > 0.5
+        if speaking.any() and music_bus.any():  # how far the voice sits above the music where they compete
+            band = lambda bus: sound._band(bus.mean(1), *vox.SPEECH_BAND, order=8)[speaking]  # filter, then select
+            balance = round(float(10 * np.log10((np.mean(band(voice_bus) ** 2) + 1e-12) / (np.mean(band(music_bus) ** 2) + 1e-12))), 1)
+        for item in cut.get("voice") or []:  # echo chosen words into the gaps after them
+            for echo in item.get("throws") or []:
+                voice_bus += vox.throw(voice_bus, SR, float(echo["at"]), float(echo["dur"]), float(echo["delay"]),
+                                       int(echo.get("repeats", 3)), float(echo.get("feedback", 0.5)), float(echo.get("db", -5.0)))
 
     fps = cut["format"]["fps"]
     for slot in timeline(cut):  # the clips' own sound, where asked for
@@ -144,5 +160,7 @@ def build(project, cut: dict) -> dict | None:
     mixed = limit(mixed, float(settings.get("ceiling_db", -1.0)))
     ff.write_wav(path, mixed, SR)
     result = ff.loudness(path)
+    if balance is not None:
+        result["voice_over_music_db"] = balance
     meta.write_text(json.dumps(result))
     return {"path": path, **result}
