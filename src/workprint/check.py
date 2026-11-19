@@ -15,7 +15,7 @@ import numpy as np
 
 from . import ff, music as music_mod, sheets, shots
 from .look import hex_bgr
-from .manifest import speed_pair, timeline, transition_of, validate
+from .manifest import alternate_frames, intercut_frames, speed_pair, timeline, transition_of, validate
 from .titles import Title, schedule
 
 
@@ -83,6 +83,14 @@ def check(project, cut: dict, render_path, write_review: bool = True) -> dict:
             n = slot["f1"] - slot["f0"]
             for edge in (spec.get("from", 0), spec.get("to", n)):
                 expected_changes.add(slot["f0"] + int(edge))
+            if spec.get("name") == "xray-flicker":
+                a, b = int(spec.get("from", 0)), int(spec.get("to", n))
+                on = alternate_frames(b - a, 0, None, int(spec.get("every", 2)), spec.get("pattern"))
+                expected_changes.update(slot["f0"] + a + k for k in range(b - a + 1) if (k in on) != (k - 1 in on))
+        if slot["cut"].get("intercut"):
+            n = slot["f1"] - slot["f0"]
+            on = intercut_frames(slot["cut"], n, fps)
+            expected_changes.update(slot["f0"] + k for k in range(n + 1) if (k in on) != (k - 1 in on))
     for item in schedule(cut.get("titles"), fps):
         if not item["fade_in"]:
             expected_changes.add(item["f0"])

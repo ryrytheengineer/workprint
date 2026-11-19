@@ -37,7 +37,9 @@ from .project import write_json
 LISTS = ("sections", "cuts", "titles", "sounds", "voice", "captions")
 SOLO_FRAMES = 12  # slots at least this long are cached as their own render chunk
 SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick", "boom")
-FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "mono", "shake")
+FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "xray-scan", "xray-pulse", "xray-flicker", "mono", "shake")
+RAMPS = {"linear": 0.5, "inout": 0.5, "in": 1.0 / 3.0, "out": 2.0 / 3.0}  # mean of each easing curve
+INTERP = ("nearest", "blend", "flow")
 TRANSITIONS = ("cut", "dissolve", "dip", "flash")
 
 
@@ -108,7 +110,30 @@ def source_span(entry: dict, frames: int, fps: float) -> tuple[float, float]:
     if entry.get("freeze"):
         return entry["in"], entry["in"]
     s0, s1 = speed_pair(entry)
+    if entry.get("ramp", "linear") not in ("linear", "inout") and entry.get("ramp") in RAMPS:
+        return entry["in"], entry["in"] + (frames / fps) * (s0 + (s1 - s0) * RAMPS[entry["ramp"]])
     return entry["in"], entry["in"] + (frames / fps) * (s0 + s1) / 2.0
+
+
+def alternate_frames(frames: int, start: int = 0, end: int | None = None, every: int = 2, pattern: list | None = None) -> set[int]:
+    """Local frames on the "other" side of a flicker: runs of ``every`` frames (or the run lengths in ``pattern``), main first."""
+    runs = [max(1, int(r)) for r in (pattern or [every])]
+    end = frames if end is None else min(frames, int(end))
+    out, k, i, other = set(), max(0, int(start)), 0, False
+    while k < end:
+        run = runs[i % len(runs)]
+        if other:
+            out.update(range(k, min(end, k + run)))
+        k, i, other = k + run, i + 1, not other
+    return out
+
+
+def intercut_frames(entry: dict, frames: int, fps: float) -> set[int]:
+    spec = entry.get("intercut") or {}
+    if not spec:
+        return set()
+    end = int(round(float(spec["to"]) * fps)) if spec.get("to") is not None else None
+    return alternate_frames(frames, int(round(float(spec.get("from", 0.0)) * fps)), end, int(spec.get("every", 2)), spec.get("pattern"))
 
 
 def transition_of(entry: dict) -> dict:
@@ -181,6 +206,20 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
             continue
         if entry["in"] < 0:
             errors.append(f"{name}: in-point is negative")
+        if entry.get("ramp", "linear") not in RAMPS:
+            errors.append(f"{name}: unknown ramp {entry['ramp']!r} (known: {', '.join(RAMPS)})")
+        if entry.get("interp", "nearest") not in INTERP:
+            errors.append(f"{name}: unknown interp {entry['interp']!r} (known: {', '.join(INTERP)})")
+        other = entry.get("intercut")
+        if other:
+            if "src" not in other or "in" not in other:
+                errors.append(f"{name}: intercut needs src and in")
+            elif project:
+                try:
+                    if float(other["in"]) + frames / fps > project.source(other["src"])["duration"] + 0.5 / fps:
+                        errors.append(f"{name}: the intercut runs past the end of {other['src']}")
+                except Exception:
+                    errors.append(f"{name}: unknown intercut source {other['src']!r}")
         if not project:
             continue
         try:

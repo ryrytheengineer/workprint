@@ -414,6 +414,32 @@ def cmd_render(args) -> int:
     return 0
 
 
+def cmd_intercut(args) -> int:
+    from . import revise
+    project = _project(args)
+    cut = project.cut()
+    entry = revise._slot(cut, args.cut)[1]["cut"]
+    if args.off:
+        entry.pop("intercut", None)
+        return _save(project, cut, args.message or f"{args.cut}: intercut removed", args.force)
+    if args.shot:
+        shot = next((s for s in project.shots() if s["id"] == args.shot), None)
+        if shot is None:
+            raise ValueError(f"unknown shot {args.shot!r}")
+        src, start = shot["src"], shot["start"] if args.start is None else args.start
+    elif args.src and args.start is not None:
+        src, start = args.src, args.start
+    else:
+        raise ValueError("intercut needs --shot ID, or --src SOURCE --in SECONDS, or --off")
+    spec = {"src": src, "in": round(float(start), 3), "every": args.every}
+    if args.begin:
+        spec["from"] = args.begin
+    if args.end is not None:
+        spec["to"] = args.end
+    entry["intercut"] = spec
+    return _save(project, cut, args.message or f"{args.cut}: flicker to {src} every {args.every} frames", args.force)
+
+
 def cmd_reframe(args) -> int:
     from . import versions
     project = _project(args)
@@ -623,6 +649,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--crf", type=int, help="x264 quality, lower is better and larger (default 20; 23 for --proxy)")
     p.add_argument("--jobs", type=int)
     p.add_argument("--json", action="store_true")
+    p = command("intercut", cmd_intercut, "make a slot flicker back and forth to a second shot")
+    p.add_argument("cut")
+    p.add_argument("--shot")
+    p.add_argument("--src")
+    p.add_argument("--in", dest="start", type=float)
+    p.add_argument("--every", type=int, default=2, help="frames per run before switching")
+    p.add_argument("--from", dest="begin", type=float, default=0.0, help="seconds into the slot where the flicker starts")
+    p.add_argument("--to", dest="end", type=float, help="seconds into the slot where it stops")
+    p.add_argument("--off", action="store_true")
+    p.add_argument("-m", "--message")
+    p.add_argument("--force", action="store_true")
     p = command("reframe", cmd_reframe, "propose where each shot sits in a 9:16, 4:5 or 1:1 version, with a review sheet")
     p.add_argument("--aspect", required=True)
     p.add_argument("--slots", help="only these cut ids, comma separated (re-measures them)")

@@ -23,7 +23,7 @@ from . import ff
 from .captions import compile_cue, key_part
 from .captions import draw as draw_captions
 from .look import Finish, Grade, apply_fx, ease, hex_bgr, resolve_look
-from .manifest import chunk_plan, source_span, speed_pair, timeline, transition_of, validate
+from .manifest import chunk_plan, intercut_frames, source_span, speed_pair, timeline, transition_of, validate
 from .titles import Title, opacity_at, schedule
 
 RENDER_REV = 1  # bump when a change to this module alters pixels: invalidates every cached chunk
@@ -95,6 +95,11 @@ class Context:
             spec.update({k: entry.get(k) for k in ("in", "speed", "move", "fit", "focus", "freeze")})
             if self.aspect and entry.get(f"focus_{self.aspect}"):
                 spec["focus"] = entry[f"focus_{self.aspect}"]
+            for key in ("interp", "ramp"):  # added only when used, so older cuts keep their cached chunks
+                if entry.get(key):
+                    spec[key] = entry[key]
+            if entry.get("intercut"):
+                spec["intercut"] = [entry["intercut"], self.project.source(entry["intercut"]["src"])["sig"]]
         return spec
 
     def slot_spec(self, i: int) -> dict:
@@ -126,6 +131,65 @@ class Context:
         return folder / f"{self.chunk_key(chunk)}.mp4"
 
 
+class MappedReader:
+    """Source frames at fractional positions: what eased speed ramps and smooth slow motion read through.
+
+    ``positions`` gives, for each output frame, where it falls among the source's own frames.
+    ``nearest`` picks the closer frame, ``blend`` cross-fades the two around it, and ``flow``
+    moves each of them along the measured motion before blending, which keeps edges sharp
+    on simple movement and can smear where things cross or appear.
+    """
+
+    def __init__(self, reader, positions: np.ndarray, mode: str = "nearest"):
+        self.reader, self.positions, self.mode = reader, positions, mode
+        self.index, self.before, self.latest, self.k = -1, None, None, 0
+        self._flow = None
+
+    def _upto(self, index: int) -> None:
+        while self.index < index:
+            frame = self.reader.read()
+            if frame is None:
+                return
+            self.before, self.latest, self.index = self.latest, frame, self.index + 1
+            self._flow = None
+
+    def _motion(self) -> np.ndarray:
+        if self._flow is None:
+            h, w = self.latest.shape[:2]
+            k = min(1.0, 480.0 / w)
+            small = lambda f: cv2.cvtColor(cv2.resize(f, (int(w * k), int(h * k)), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY)
+            flow = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM).calc(small(self.before), small(self.latest), None)
+            self._flow = cv2.resize(flow, (w, h), interpolation=cv2.INTER_LINEAR) / k
+        return self._flow
+
+    def read(self) -> np.ndarray | None:
+        if self.k >= len(self.positions):
+            return None
+        pos = float(self.positions[self.k])
+        self.k += 1
+        i, frac = int(np.floor(pos)), pos - np.floor(pos)
+        self._upto(i + 1 if frac > 0.02 else i)
+        if self.index < i:  # the source ended before this frame
+            return None
+        if self.index == i or self.before is None:
+            return self.latest
+        a, b = self.before, self.latest  # frames i and i + 1
+        if self.mode == "blend":
+            return cv2.addWeighted(a, 1.0 - frac, b, frac, 0)
+        if self.mode == "flow":
+            flow = self._motion()
+            h, w = a.shape[:2]
+            gx, gy = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
+            f = np.float32(frac)
+            back = cv2.remap(a, gx - f * flow[..., 0], gy - f * flow[..., 1], cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+            ahead = cv2.remap(b, gx + (1 - f) * flow[..., 0], gy + (1 - f) * flow[..., 1], cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+            return cv2.addWeighted(back, 1.0 - frac, ahead, frac, 0)
+        return a if frac < 0.5 else b
+
+    def close(self) -> None:
+        self.reader.close()
+
+
 class SlotPlayer:
     """Frames of one slot, in order, after reframing, camera move, grade and effects.
 
@@ -133,9 +197,9 @@ class SlotPlayer:
     past its out-point (the outgoing side of a dissolve).
     """
 
-    def __init__(self, ctx: Context, i: int, start_local: int = 0):
+    def __init__(self, ctx: Context, i: int, start_local: int = 0, override: dict | None = None):
         slot = ctx.slots[i]
-        entry = self.entry = slot["cut"]
+        entry = self.entry = override or slot["cut"]
         self.n = slot["f1"] - slot["f0"]
         self.local = start_local
         self.W, self.H = ctx.W, ctx.H
@@ -145,6 +209,7 @@ class SlotPlayer:
         self.last = None
         self.reader = None
         self.card = None
+        self.other, self.other_frames = None, set()
         if "card" in entry:
             self.card = np.full((self.H, self.W, 3), hex_bgr(entry["card"].get("bg", "#000000")), np.uint8)
             return
@@ -183,7 +248,22 @@ class SlotPlayer:
                 time_map = f"((-{s0!r}+sqrt({s0 * s0!r}+2*({accel!r})*(PTS-STARTPTS)*TB))/({accel!r}))/TB"
         else:
             start, time_map = b, (None if s1 == 1.0 else f"(PTS-STARTPTS)/{s1!r}")
-        self.reader = ff.FrameReader(ctx.project.path_of(source), start, ctx.fps, scale, crop, source.get("matrix", "bt709"), time_map)
+        mode, ramp = entry.get("interp"), entry.get("ramp", "linear")
+        if start_local == 0 and not self.freeze and (mode in ("blend", "flow") or ramp != "linear"):
+            native = float(source.get("fps") or ctx.fps)  # read the source's own frames and place the output among them
+            u = np.arange(self.n) / max(1, self.n)
+            speed = s0 + (s1 - s0) * np.array([ease(float(p), ramp) for p in u])
+            positions = np.r_[0.0, np.cumsum(speed)[:-1]] / ctx.fps * native
+            self.reader = MappedReader(ff.FrameReader(ctx.project.path_of(source), a, native, scale, crop, source.get("matrix", "bt709")),
+                                       positions, mode or "nearest")
+        else:
+            self.reader = ff.FrameReader(ctx.project.path_of(source), start, ctx.fps, scale, crop, source.get("matrix", "bt709"), time_map)
+        cutaway = entry.get("intercut")
+        if cutaway and override is None and start_local == 0:  # a second shot that this one flickers to
+            self.other_frames = intercut_frames(entry, self.n, ctx.fps)
+            twin = {k: entry[k] for k in ("grade", "fit", "move") if k in entry}
+            twin.update({k: cutaway[k] for k in ("src", "in", "focus", "speed") if k in cutaway})
+            self.other = SlotPlayer(ctx, i, 0, twin)
 
     def _reframe(self, raw: np.ndarray, local: int) -> np.ndarray:
         if self.contain:
@@ -208,6 +288,13 @@ class SlotPlayer:
     def next(self) -> np.ndarray:
         local = self.local
         self.local += 1
+        if self.other is not None:  # keep the second shot running in step, and show it on its frames
+            other = self.other.next()
+            if local in self.other_frames:
+                if self.card is None and not self.freeze:  # the main shot keeps running underneath
+                    raw = self.reader.read()
+                    self.last = raw if raw is not None else self.last
+                return other
         if self.card is not None:
             frame = self.card
         else:
@@ -222,6 +309,9 @@ class SlotPlayer:
     def close(self) -> None:
         if self.reader:
             self.reader.close()
+        if self.other is not None:
+            self.underrun += self.other.underrun
+            self.other.close()
 
 
 def _toward(frame: np.ndarray, color: str, amount: float) -> np.ndarray:

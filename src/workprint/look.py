@@ -132,6 +132,23 @@ def _zoom_about_centre(frame: np.ndarray, z: float) -> np.ndarray:
     return cv2.warpAffine(frame, m, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
 
 
+def xray(frame: np.ndarray, spec: dict | None = None) -> np.ndarray:
+    """The x-ray look. Options: ``tint`` (hex colour of the highlights), ``detail`` (edge strength), ``deep``
+    (local contrast and a soft glow, for flat or dark footage)."""
+    spec = spec or {}
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    if spec.get("deep"):
+        gray = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
+    edges = cv2.convertScaleAbs(cv2.Laplacian(gray, cv2.CV_16S, ksize=3), alpha=float(spec.get("detail", 1.5)))
+    inv = cv2.add(255 - gray, edges)
+    if spec.get("deep"):
+        inv = cv2.addWeighted(inv, 0.85, cv2.GaussianBlur(inv, (0, 0), max(2.0, frame.shape[0] * 0.012)), 0.35, 0)
+    b, g, r = (c / 255.0 for c in hex_bgr(spec["tint"])) if spec.get("tint") else (1.0, 0.92, 0.78)
+    top = max(b, g, r, 1e-6)
+    channels = [inv if abs(c / top - 1.0) < 1e-6 else cv2.convertScaleAbs(inv, alpha=c / top) for c in (b, g, r)]
+    return cv2.merge(channels)
+
+
 def apply_fx(frame: np.ndarray, fx_list: list, local: int, frames: int) -> np.ndarray:
     """Apply a slot's effects to one frame. ``local`` is the frame index inside the slot."""
     for fx in fx_list or []:
@@ -156,10 +173,39 @@ def apply_fx(frame: np.ndarray, fx_list: list, local: int, frames: int) -> np.nd
         elif name == "mono":
             frame = cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
         elif name == "xray":  # inverted luminance, cold tint, edges lifted
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            edges = cv2.convertScaleAbs(cv2.Laplacian(gray, cv2.CV_16S, ksize=3), alpha=1.5)
-            inv = cv2.add(255 - gray, edges)
-            frame = cv2.merge([inv, cv2.convertScaleAbs(inv, alpha=0.92), cv2.convertScaleAbs(inv, alpha=0.78)])
+            frame = xray(frame, spec)
+        elif name == "xray-pulse":  # hits as x-ray and settles back to the picture (shape: out), or the reverse (in)
+            p = k / max(1, end - start - 1)
+            amount = {"in": ease(p, "in"), "inout": 1.0 - abs(2.0 * p - 1.0)}.get(spec.get("shape", "out"), 1.0 - ease(p, "out"))
+            frame = cv2.addWeighted(xray(frame, spec), amount, frame, 1.0 - amount, 0)
+        elif name == "xray-flicker":  # x-ray and picture alternate in short runs
+            from .manifest import alternate_frames
+            if k not in alternate_frames(end - start, 0, None, int(spec.get("every", 2)), spec.get("pattern")):
+                frame = xray(frame, spec)
+        elif name == "xray-scan":  # a scan line crosses the frame; what it has passed (or a band behind it) is x-ray
+            h, w = frame.shape[:2]
+            direction = spec.get("dir", "right")
+            length = w if direction in ("right", "left") else h
+            band = float(spec.get("width", 0.0))  # 0 = everything behind the line stays x-ray
+            p = ease(k / max(1, end - start - 1), spec.get("ease", "linear")) * (1.0 + band)
+            lead = int(round(p * length))
+            tail = 0 if band <= 0 else max(0, lead - int(round(band * length)))
+            lead_c = min(length, lead)
+            if direction in ("left", "up"):
+                tail, lead_c, edge = length - lead_c, length - tail, length - lead
+            else:
+                edge = lead
+            out, seen = frame.copy(), xray(frame, spec)
+            line = max(2, int(round(length * 0.004)))
+            if direction in ("right", "left"):
+                out[:, tail:lead_c] = seen[:, tail:lead_c]
+                if 0 <= edge < length:
+                    out[:, max(0, edge - line):edge + line] = 255
+            else:
+                out[tail:lead_c] = seen[tail:lead_c]
+                if 0 <= edge < length:
+                    out[max(0, edge - line):edge + line] = 255
+            frame = out
         elif name == "shake":
             rng = np.random.default_rng(int(spec.get("seed", 7)) * 100003 + local)
             dx, dy = rng.uniform(-1, 1, 2) * float(spec.get("px", 8))
