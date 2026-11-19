@@ -4,8 +4,9 @@ Three tools, all plain signal processing:
 
 * ``treat`` shapes one voice: a rumble filter, a lift where consonants live, gentle
   levelling, and optionally a room. Presets: ``clear`` (intelligible, nearly dry),
-  ``hall`` (the same voice in a large space, for weight) and ``radio`` (narrow and
-  driven, like an old broadcast).
+  ``hall`` (the same voice in a large space, for weight), ``radio`` (narrow and
+  driven, like an old broadcast) and ``restore`` (noise reduction for old or noisy
+  recordings, then a light clean-up).
 * ``carve`` turns the music down only where speech needs the room (roughly 300 Hz to
   4 kHz) and only while someone is speaking, so the low end and the air of the track
   stay up under the voice.
@@ -15,11 +16,12 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
-from scipy.signal import butter, fftconvolve, sosfilt, sosfiltfilt
+from scipy.signal import butter, fftconvolve, istft, sosfilt, sosfiltfilt, stft
 
 PRESETS = {
     "clear": {"hp": 90, "presence_db": 3.0, "mud_db": -2.0, "comp": 3.0, "reverb": 0.05, "tail": 0.7},
     "hall": {"hp": 90, "presence_db": 2.0, "mud_db": -2.0, "comp": 3.0, "reverb": 0.24, "tail": 2.4, "predelay": 0.03},
+    "restore": {"hp": 80, "denoise": 0.8, "presence_db": 2.0, "mud_db": -1.0, "comp": 2.5, "reverb": 0.0, "tail": 0.0},
     "radio": {"hp": 300, "lp": 3400, "presence_db": 4.0, "mud_db": 0.0, "comp": 5.0, "drive": 2.5, "reverb": 0.0, "tail": 0.0},
 }
 SPEECH_BAND = (300.0, 4000.0)
@@ -76,9 +78,35 @@ def room(sr: int, tail: float, seed: int = 11) -> np.ndarray:
     return body / (np.sqrt((body ** 2).sum(0)).mean() + 1e-12)
 
 
+def denoise(x: np.ndarray, sr: int, strength: float = 0.7) -> np.ndarray:
+    """Lower steady background noise (hiss, hum, surface noise) under a voice.
+
+    Each frequency's noise level is taken from the quietest tenth of the recording, so it
+    needs some pause to learn from. Sound that does not rise clearly above that level is
+    turned down, by at most 6 to 24 dB depending on ``strength`` (0..1). It cannot remove
+    noise that changes (a crowd, music, clicks), and pushed hard it thins the voice.
+    """
+    strength = float(np.clip(strength, 0.0, 1.0))
+    if strength <= 0 or len(x) < 4096:
+        return x
+    size, hop = 2048, 512
+    _, _, spectrum = stft(x, sr, nperseg=size, noverlap=size - hop, window="hann")
+    mag = np.abs(spectrum)
+    level = mag.sum(0)
+    quiet = level <= np.percentile(level, 10)
+    noise = np.median(mag[:, quiet], axis=1, keepdims=True) * (1.0 + 1.5 * strength)
+    gain = np.sqrt(np.maximum(1.0 - (noise / (mag + 1e-12)) ** 2, 0.0))
+    gain = np.maximum(uniform_filter1d(uniform_filter1d(gain, size=3, axis=0), size=5, axis=1), 10.0 ** (-(6.0 + 18.0 * strength) / 20.0))
+    _, out = istft(spectrum * gain, sr, nperseg=size, noverlap=size - hop, window="hann")
+    out = out[:len(x)]
+    return np.pad(out, (0, len(x) - len(out)))
+
+
 def treat(x: np.ndarray, sr: int, spec: dict) -> np.ndarray:
     """Process one mono voice. Returns stereo, longer than the input by the room's tail."""
     x = np.asarray(x, np.float64)
+    if spec.get("denoise"):
+        x = denoise(x, sr, float(spec["denoise"]))
     if spec.get("hp"):
         x = sosfilt(butter(2, float(spec["hp"]), "highpass", fs=sr, output="sos"), x)
     if spec.get("lp"):

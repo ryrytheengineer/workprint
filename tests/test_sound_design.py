@@ -145,3 +145,20 @@ def test_cuts_can_land_on_the_kick(project):
     wanted = float(kicks[np.argmin(np.abs(kicks - (target["at"] + start + 0.2)))]) - start
     revise.roll(cut, target["id"], to=target["at"] + 0.2, analysis=log, on="kick")
     assert abs(target["at"] - wanted) < 1e-3
+
+
+def test_noise_reduction_lowers_the_floor_and_keeps_the_voice():
+    rng = np.random.default_rng(8)
+    t = np.arange(6 * SR) / SR
+    voice_part = np.zeros_like(t)
+    for a, b in ((0.8, 2.0), (3.0, 4.4)):
+        m = (t >= a) & (t < b)
+        voice_part[m] = 0.2 * (0.6 + 0.4 * np.sin(2 * np.pi * 4 * t[m])) * sum(np.sin(2 * np.pi * f * t[m]) / k for k, f in enumerate((150, 450, 900, 1800, 2700), 1))
+    noisy = voice_part + rng.normal(0, 0.01, len(t)) + 0.02 * np.sin(2 * np.pi * 60 * t)
+    clean = vox.denoise(noisy, SR, 0.8)
+    rms = lambda x, a, b: 20 * np.log10(np.sqrt(np.mean(x[int(a * SR):int(b * SR)] ** 2)) + 1e-12)
+    assert rms(clean, 4.8, 5.8) < rms(noisy, 4.8, 5.8) - 12  # the pause is much quieter
+    assert abs(rms(clean, 1.0, 1.9) - rms(noisy, 1.0, 1.9)) < 1.5  # the voice keeps its level
+    assert len(clean) == len(noisy) and vox.denoise(noisy, SR, 0.0) is noisy
+    restored = vox.treat(noisy, SR, vox.settings("restore"))
+    assert restored.shape == (len(noisy), 2) and rms(restored[:, 0], 4.8, 5.8) < rms(noisy, 4.8, 5.8) - 12
