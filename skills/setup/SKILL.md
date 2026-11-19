@@ -35,3 +35,11 @@ When the last line says `ready`, say so and offer to start a film with the
 `workprint:edit` skill. Needs: a folder of video clips, usually a music track, and a brief.
 
 No GPU, no API keys and no accounts are involved. Everything runs on the user's machine.
+
+## Voice tools (optional)
+
+`workprint doctor` also reports the optional voice tools. They are needed only to transcribe a
+voice-over and time its words; captions from a script or a word file work without them.
+`workprint voice setup` lists what would be installed (two Python packages and a 482 MB speech
+model from GitHub, about 1.1 GB on disk in all with the base environment, nothing sent anywhere).
+Ask the user before running `workprint voice setup --yes`.

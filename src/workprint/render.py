@@ -20,6 +20,8 @@ import cv2
 import numpy as np
 
 from . import ff
+from .captions import compile_cue, key_part
+from .captions import draw as draw_captions
 from .look import Finish, Grade, apply_fx, ease, hex_bgr, resolve_look
 from .manifest import chunk_plan, source_span, speed_pair, timeline, transition_of, validate
 from .titles import Title, opacity_at, schedule
@@ -46,17 +48,23 @@ def _pair(value, default: float) -> tuple[float, float]:
 class Context:
     """Everything needed to render any chunk of one cut at one output size."""
 
-    def __init__(self, project, cut: dict, scale: float = 1.0, crf: int = 20, preset: str = "medium"):
+    def __init__(self, project, cut: dict, scale: float = 1.0, crf: int = 20, preset: str = "medium", aspect: str | None = None):
         self.project, self.cut = project, cut
         fmt = cut["format"]
         self.fps = float(fmt["fps"])
-        self.W, self.H = _even(fmt["width"] * scale), _even(fmt["height"] * scale)
+        self.aspect, full = None, (fmt["width"], fmt["height"])
+        if aspect:  # a version of the cut in another shape: see versions.py
+            from .versions import parse, size_for
+            self.aspect, ratio = parse(aspect)
+            full = size_for(fmt, ratio)
+        self.W, self.H = _even(full[0] * scale), _even(full[1] * scale)
         self.crf, self.preset = crf, preset
         self.slots = timeline(cut)
         self.chunks = chunk_plan(cut)
         self.title_plan = schedule(cut.get("titles"), self.fps)
         self._finish = None
         self._titles = None
+        self._captions = None
 
     @property
     def finish(self) -> Finish:
@@ -70,6 +78,12 @@ class Context:
             self._titles = [(item, Title(item["spec"], self.W, self.H)) for item in self.title_plan]
         return self._titles
 
+    @property
+    def captions(self) -> list[dict]:
+        if self._captions is None:
+            self._captions = [p for cue in self.cut.get("captions") or [] for p in compile_cue(cue, self.fps, self.W, self.H)]
+        return self._captions
+
     # ---- cache keys ----------------------------------------------------------------------------
     def _core(self, i: int) -> dict:
         entry = self.slots[i]["cut"]
@@ -79,6 +93,8 @@ class Context:
         else:
             spec["sig"] = self.project.source(entry["src"])["sig"]
             spec.update({k: entry.get(k) for k in ("in", "speed", "move", "fit", "focus", "freeze")})
+            if self.aspect and entry.get(f"focus_{self.aspect}"):
+                spec["focus"] = entry[f"focus_{self.aspect}"]
         return spec
 
     def slot_spec(self, i: int) -> dict:
@@ -99,6 +115,9 @@ class Context:
                   for item in self.title_plan if item["f0"] < f1 and item["f1"] > f0]
         payload = {"rev": RENDER_REV, "size": [self.W, self.H], "fps": self.fps, "crf": self.crf, "preset": self.preset,
                    "look": resolve_look(self.cut.get("look")), "slots": [self.slot_spec(i) for i in chunk["slots"]], "titles": titles}
+        words = key_part(self.cut.get("captions"), f0, f1, self.fps)
+        if words:  # only present when there are captions, so cuts without them keep their cached chunks
+            payload["captions"] = words
         return hashlib.sha1(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()[:20]
 
     def chunk_path(self, chunk: dict) -> Path:
@@ -148,7 +167,7 @@ class SlotPlayer:
             q = dec / k
             dw, dh = _even(sw * dec), _even(sh * dec)
             cw, ch = min(dw, _even(self.W * q)), min(dh, _even(self.H * q))
-            fx_, fy_ = entry.get("focus") or (0.5, 0.5)
+            fx_, fy_ = (ctx.aspect and entry.get(f"focus_{ctx.aspect}")) or entry.get("focus") or (0.5, 0.5)
             scale, crop = (dw, dh), (cw, ch, int((dw - cw) * fx_), int((dh - ch) * fy_))
             self.frame_w, self.frame_h = cw, ch
         s0, s1 = speed_pair(entry)
@@ -248,6 +267,8 @@ def render_chunk(ctx: Context, index: int) -> dict:
                             if not frame.flags.writeable:
                                 frame = frame.copy()
                             title.draw(frame, alpha)
+                    if ctx.captions:
+                        frame = draw_captions(ctx.captions, frame, absolute)
                     writer.write(frame)
                     frames += 1
                 underrun += player.underrun
@@ -262,13 +283,13 @@ def render_chunk(ctx: Context, index: int) -> dict:
 
 def _worker(args) -> dict:
     from .project import Project
-    root, cut, index, scale, crf, preset = args
-    return render_chunk(Context(Project(root), cut, scale, crf, preset), index)
+    root, cut, index, scale, crf, preset, aspect = args
+    return render_chunk(Context(Project(root), cut, scale, crf, preset, aspect), index)
 
 
-def plan(project, cut: dict, scale: float = 1.0, crf: int = 20, preset: str = "medium") -> dict:
+def plan(project, cut: dict, scale: float = 1.0, crf: int = 20, preset: str = "medium", aspect: str | None = None) -> dict:
     """Which chunks a render would reuse and which it would have to render."""
-    ctx = Context(project, cut, scale, crf, preset)
+    ctx = Context(project, cut, scale, crf, preset, aspect)
     paths = [ctx.chunk_path(chunk) for chunk in ctx.chunks]
     todo = [i for i, p in enumerate(paths) if not p.exists()]
     return {"ctx": ctx, "paths": paths, "todo": todo,
@@ -277,21 +298,21 @@ def plan(project, cut: dict, scale: float = 1.0, crf: int = 20, preset: str = "m
 
 
 def render(project, cut: dict, out: Path | None = None, scale: float = 1.0, crf: int = 20, preset: str = "medium",
-           jobs: int | None = None, progress=print) -> dict:
+           jobs: int | None = None, progress=print, aspect: str | None = None) -> dict:
     """Render the cut to an MP4. Returns what was rendered, what was reused, and how long it took."""
     from . import mix  # imported here so picture-only tools do not need the audio stack loaded
     errors, warnings = validate(cut, project)
     if errors:
         raise RenderError("the cut does not validate:\n  " + "\n  ".join(errors))
     started = time.time()
-    job = plan(project, cut, scale, crf, preset)
+    job = plan(project, cut, scale, crf, preset, aspect)
     ctx, todo = job["ctx"], job["todo"]
     jobs = jobs or max(1, min(4, (os.cpu_count() or 2) // 2))
     underrun = 0
     if todo:
         progress(f"rendering {len(todo)} of {len(ctx.chunks)} chunks ({job['frames_todo']} of {job['frames_total']} frames)")
         if jobs > 1 and len(todo) > 1:
-            work = [(str(project.root), cut, i, scale, crf, preset) for i in todo]
+            work = [(str(project.root), cut, i, scale, crf, preset, aspect) for i in todo]
             with ProcessPoolExecutor(max_workers=jobs) as pool:
                 for result in pool.map(_worker, work):
                     underrun += result["underrun"]
@@ -303,7 +324,7 @@ def render(project, cut: dict, out: Path | None = None, scale: float = 1.0, crf:
     picture_seconds = time.time() - started
     audio = mix.build(project, cut)
     if out is None:
-        suffix = "" if scale == 1.0 else "-proxy"
+        suffix = (f"-{ctx.aspect}" if ctx.aspect else "") + ("" if scale == 1.0 else "-proxy")
         out = project.root / "renders" / f"cut-v{project.version():04d}{suffix}.mp4"
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -6,9 +6,9 @@ in plain language. Changing one shot re-renders half a second of picture, not th
 
 Workprint is for editors, filmmakers and creative directors who already know what a
 good cut is and want the distance between an idea and a watchable first cut to be
-minutes. It is not a template engine, a podcast clipper or a caption tool.
+minutes. It is not a template engine or a podcast clipper.
 
-By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.1.0.
+By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.2.0.
 
 ![Storyboard of the example film](examples/return/review/storyboard.jpg)
 
@@ -22,6 +22,12 @@ How it was made, shot by shot: [`examples/return/`](examples/return/).*
   movement and exposure, and lays the shots out on contact sheets. Claude reads the
   sheets and logs what is actually in each shot before anything is cut.
 - **Reads the music.** Tempo, beats, bar lines, how energy moves through the track, where it drops.
+- **Reads the voice.** Finds the phrases and pauses in a voice-over and the time of every
+  word, transcribed on your machine by an optional local speech model or aligned from a
+  script you supply. A film can then cut on the breath and land a word on a bar line.
+- **Sets the words.** Captions timed to the voice in four styles: a line that builds as it
+  is spoken, one word at a time, a split serif that keeps the middle of the frame clear,
+  and full-frame punch words, each with a different designed hit under it.
 - **Cuts on the grid.** Claude decides the shape of the film; Workprint lays the cuts on
   the beat, fills each slot with the best-fitting logged shot, and writes down why.
 - **Renders the film**: reframing, push-ins, speed ramps, grade, a film-wide look,
@@ -31,10 +37,13 @@ How it was made, shot by shot: [`examples/return/`](examples/return/).*
 - **Revises in place.** "Replace the third shot", "that cut is late", "hold the ending
   longer" become named operations on a readable cut file with full history. Only what
   changed is rendered again, and untouched picture is identical to the frame.
+- **Makes the tall version.** Re-renders a finished cut as 9:16, 4:5 or 1:1, proposes where
+  each shot sits in the new frame, and gives you a sheet to correct it from.
 - **Learns habits, not taste.** Point it at films you like and it measures shot lengths,
   cutting rate, how often cuts land on the beat, loudness. You correct the numbers; it uses them.
 
-It runs on your machine. No GPU, no API keys, no accounts, no editing application.
+It runs on your machine. No GPU, no API keys, no accounts, no editing application. The one
+large download is optional and explicit: a 482 MB speech model, fetched only by `workprint voice setup --yes`.
 
 ## Install
 
@@ -81,6 +90,10 @@ workprint -p film music                   # tempo, bars, sections, drops
 workprint -p film draft structure.json    # first assembly on the grid
 workprint -p film render --proxy && workprint -p film check
 workprint -p film replace c003 --shot A004-07
+workprint -p film voice add ~/vo/line.wav            # phrases, words and when each is said
+workprint -p film voice place V01 --at 12.0          # the first word lands at 12.0 s
+workprint -p film captions --style split --punch genius --accent
+workprint -p film reframe --aspect 9:16              # then: render --aspect 9:16
 workprint -p film render && workprint -p film check
 workprint -p film export --edl film.edl   # optional hand-off to an editing application
 ```
@@ -110,13 +123,16 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 
 | | |
 |---|---|
-| Test suite | 23 tests on synthetic media with exact expected answers, all passing |
+| Test suite | 36 tests, all passing: 35 on synthetic media with exact expected answers, 1 that needs the optional speech model |
 | Example film | 11 clips (30 minutes of 1080p footage) to a checked 41 s film, end to end |
 | Shot logging | 146 shots found in 30 minutes of footage, 4 to 6 times faster than real time |
 | Render | 1080p at about 16 frames per second, 960x540 proxy at 23 to 30, 341 MB peak memory |
 | A one-shot revision | 12 of 984 frames re-rendered in 2.5 s; the other 972 bit-identical |
 | Music sync on the example | 26 of 26 cuts within 45 ms of a beat |
-| Plugin | Validates, installs and loads with Claude Code 2.1.328 from a local checkout |
+| Plugin | Validates, installs and loads with Claude Code 2.1.328, from a local checkout and from GitHub (0.1.0) |
+| Voice | Five excerpts (5 to 8 s) of a 1940 radio address: the transcript matched the known text word for word; on three of them, all 8 phrase-opening words landed within 0.02 s of phrase starts measured separately from the signal level |
+| Voice setup | Through the plugin launcher into a clean environment: 102 s, 1.1 GB on disk including the base environment; a 5 s clip read in 3.4 s |
+| Captions and versions | Four caption styles and a 9:16 re-render of a 41 s trial film, inspected frame by frame and passed by the checker. No example film ships with them yet |
 
 ## Limitations
 
@@ -126,8 +142,17 @@ Read these before relying on it.
   macOS or Windows yet.
 - **The editor cannot watch or listen.** Claude judges from still frames, filmstrips and
   meters. Motion, performance and the feel of the mix need your eyes and ears.
-- **Built for music-driven films up to a minute or two.** There is no transcription, so
-  dialogue and interview material are out of scope for now.
+- **Built for music-driven films up to a minute or two**, with or without a voice-over.
+  Dialogue, interviews and more than one speaker are out of scope.
+- **Voice is new and lightly tested.** Transcription and word timing were verified on a
+  handful of short clips from one 1940 English recording. English only. Other voices,
+  accents and noisy or music-backed recordings are unverified, so read the transcript it
+  prints. Without the optional tools a script is spread across the phrases by syllable
+  count, and word times inside a phrase are then estimates (it says so).
+- **Which words matter is the editor's call.** The "leaned on" list is level and length,
+  not meaning. Punch words and their hits are placed where you say.
+- **Reframing is a proposal** made from detail and movement, not from recognising a
+  subject. It will be wrong on some shots; the review sheet is there to be read.
 - **The first assembly is a starting point.** On the example about two thirds of its
   shots were replaced before the film was right.
 - **Bar lines are an estimate.** Tempo and beats are reliable on steady music; which beat
@@ -148,6 +173,7 @@ Read these before relying on it.
 | Python | 3.10 or newer |
 | FFmpeg | Any recent build with libx264 and AAC (tested with 6.1) |
 | Python packages | NumPy, SciPy, OpenCV (headless), Pillow; installed automatically into a private environment |
+| Voice tools (optional) | PocketSphinx, sherpa-onnx and a 482 MB speech model, installed only when you run `workprint voice setup --yes` |
 | Hardware | No GPU. The example rendered at 1080p on 2 CPU cores, peaking at 341 MB in the largest process |
 | Operating systems | Linux tested. macOS and Windows expected to work, not yet verified |
 

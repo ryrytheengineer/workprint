@@ -15,7 +15,7 @@ from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from . import ff, sound
 from .manifest import speed_pair, timeline
 
-MIX_REV = 1
+MIX_REV = 2
 SR = sound.SR
 
 
@@ -61,8 +61,12 @@ def _spec(project, cut: dict) -> dict:
            if s["cut"].get("nat") is not None and "src" in s["cut"]]
     music_sig = project.data["music"]["sig"] if (cut.get("music") and project.data.get("music")) else None
     key = (project.music() or {}).get("key", {}).get("root")
-    return {"rev": MIX_REV, "duration": cut["duration"], "fps": fps, "music": cut.get("music"), "music_sig": music_sig,
+    spec = {"rev": MIX_REV, "duration": cut["duration"], "fps": fps, "music": cut.get("music"), "music_sig": music_sig,
             "sounds": cut.get("sounds"), "voice": cut.get("voice"), "nat": nat, "audio": cut.get("audio"), "key": key}
+    sigs = [project.voice(v["src"])["sig"] for v in cut.get("voice") or [] if "src" in v]
+    if sigs:
+        spec["voice_sigs"] = sigs
+    return spec
 
 
 def build(project, cut: dict) -> dict | None:
@@ -93,13 +97,16 @@ def build(project, cut: dict) -> dict | None:
         _place(music_bus, audio * (10.0 ** (gain / 20.0))[:, None], 0.0)
 
     for item in cut.get("voice") or []:
-        file = Path(item["file"])
-        file = file if file.is_absolute() else project.root / file
+        if "src" in item:
+            file = project.path_of(project.voice(item["src"]))
+        else:
+            file = Path(item["file"])
+            file = file if file.is_absolute() else project.root / file
         audio = ff.read_audio(file, SR, 1, item.get("in", 0.0), item.get("dur")).astype(np.float64)
         audio = _fades(np.repeat(audio, 2, axis=1), 0.02, 0.05) * sound.db(item.get("gain_db", 0.0))
         _place(voice_bus, audio, item["at"])
     if voice_bus.any():  # duck the music under speech
-        envelope = np.sqrt(uniform_filter1d((voice_bus.mean(1)) ** 2, size=int(0.25 * SR)))
+        envelope = np.sqrt(np.maximum(uniform_filter1d((voice_bus.mean(1)) ** 2, size=int(0.25 * SR)), 0.0))
         active = np.clip((20 * np.log10(envelope + 1e-9) + 50.0) / 14.0, 0.0, 1.0)
         music_bus *= (10.0 ** (float(settings.get("duck_db", -6.0)) * active / 20.0))[:, None]
 

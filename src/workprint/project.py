@@ -162,6 +162,29 @@ class Project:
         self.data["music"] = {"path": self._store_path(path), "sig": signature(path), "duration": round(info["duration"], 3)}
         return self.data["music"]
 
+    def add_voice(self, path) -> dict:
+        path = Path(path).expanduser()
+        info = ff.probe(path)
+        if not info.get("has_audio"):
+            raise ProjectError(f"no audio stream in {path}")
+        voices = self.data.setdefault("voices", [])
+        sig = signature(path)
+        for entry in voices:
+            if entry["sig"] == sig:
+                return entry
+        entry = {"id": f"V{len(voices) + 1:02d}", "path": self._store_path(path), "sig": sig, "duration": round(info["duration"], 3)}
+        voices.append(entry)
+        return entry
+
+    def voice(self, voice_id: str) -> dict:
+        for entry in self.data.get("voices", []):
+            if entry["id"] == voice_id:
+                return entry
+        raise ProjectError(f"unknown voice {voice_id!r}")
+
+    def voice_log(self, voice_id: str) -> dict:
+        return read_json(self.log_dir / f"voice-{voice_id}.json", {}) or {}
+
     # ---- lookups ------------------------------------------------------------
     def source(self, source_id: str) -> dict:
         for src in self.data["sources"]:

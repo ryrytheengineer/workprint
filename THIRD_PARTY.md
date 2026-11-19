@@ -23,6 +23,16 @@ that category is copied into this repository. Licences were checked on 2026-11-1
 | uv | https://github.com/astral-sh/uv | Apache-2.0 / MIT | Faster creation of the private environment | Used by the launcher if it happens to be on PATH; otherwise the standard library's `venv` and `pip` |
 | pytest | https://pypi.org/project/pytest/ | MIT | Running the test suite | Development only |
 
+Voice tools, installed only by `workprint voice setup --yes` and never bundled:
+
+- **PocketSphinx** (Carnegie Mellon University and contributors), BSD-style licence, with its
+  bundled US English acoustic model. Used for forced alignment of known words to audio.
+- **sherpa-onnx** (the k2-fsa project), Apache-2.0. Runs the speech model.
+- **Parakeet TDT 0.6b v2** speech-recognition weights by NVIDIA, CC BY 4.0, in the ONNX export
+  published by the sherpa-onnx project. Downloaded from that project's GitHub releases and
+  used only if its SHA-256 matches the value pinned in `src/workprint/voice.py`. NVIDIA does
+  not endorse Workprint.
+
 ## Bundled
 
 | Asset | Source | Licence | Modified | Where | Required notice |

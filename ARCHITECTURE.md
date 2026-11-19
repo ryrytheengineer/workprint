@@ -178,6 +178,30 @@ one external requirement; `doctor` detects it and prints the install command for
 user's system. The plugin deliberately has no top-level `bin/` directory, because
 Claude Code's documentation states that claude.ai and Cowork do not install plugins that have one.
 
+### Speech is measured first and recognised only on request
+
+`voice.py` finds phrases and pauses itself, from the speech-band level of the recording,
+because that is all a picture editor needs to cut on the breath and it needs no model.
+Words are a different matter: timing them well needs an acoustic model. Rather than ship
+or silently fetch one, the model is an explicit, checksum-pinned, optional install, and
+recognition (text) is separated from alignment (time): the recogniser's words are re-timed
+by a forced aligner and the finer time is kept only where the two agree. Every reading
+records how its word times were obtained and whether they are estimates.
+
+### Captions are cues in the cut, drawn once and uncovered
+
+A caption is data in the cut like a title or a sound, so it has history, diff and undo.
+Each line is rasterised once; building it word by word uncovers columns of that one
+image, so text cannot shift as it appears. A chunk's cache key includes only the cues
+that overlap it, and a cut with no captions hashes exactly as it did in 0.1.
+
+### A version is the same cut at another frame size
+
+A 9:16 film is not a second edit. `render --aspect` runs the same slots through the same
+renderer with a different frame size and a per-slot focus, into its own cache entries.
+`versions.py` proposes each focus from where detail and movement are; it does not
+recognise subjects, and says so.
+
 ## Provenance
 
 | Subsystem | Status |

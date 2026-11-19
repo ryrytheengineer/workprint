@@ -21,6 +21,10 @@ Optional per-cut fields: ``speed`` (number or [from, to]), ``move`` (zoom/x/y ra
 ``fit``, ``focus``, ``grade``, ``fx``, ``t`` (transition into the slot), ``freeze``,
 ``nat`` (dB of the clip's own sound), ``shot`` and ``note`` (for humans), or ``card``
 instead of ``src`` for a plain colour card.
+
+Two more lists carry speech: ``voice`` places a recording on the timeline
+(``{"id": "v01", "src": "V01", "at": 4.0, "in": 12.5, "dur": 6.2, "gain_db": 0}``) and
+``captions`` holds the words drawn over the picture (see ``captions.py``).
 """
 from __future__ import annotations
 
@@ -30,7 +34,7 @@ from pathlib import Path
 from . import __version__
 from .project import write_json
 
-LISTS = ("sections", "cuts", "titles", "sounds", "voice")
+LISTS = ("sections", "cuts", "titles", "sounds", "voice", "captions")
 SOLO_FRAMES = 12  # slots at least this long are cached as their own render chunk
 SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick", "boom")
 FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "mono", "shake")
@@ -67,7 +71,11 @@ def normalize(cut: dict) -> dict:
     for item in cut.get("cuts", []):
         item["at"] = round(frame_of(item["at"], fps) / fps, 5)
     cut["cuts"] = sorted(cut.get("cuts", []), key=lambda c: c["at"])
-    for key, prefix in (("cuts", "c"), ("titles", "t"), ("sounds", "s")):
+    if cut.get("captions"):
+        cut["captions"] = sorted(cut["captions"], key=lambda c: c.get("at", 0.0))
+    for key, prefix in (("cuts", "c"), ("titles", "t"), ("sounds", "s"), ("voice", "v"), ("captions", "k")):
+        if key in ("voice", "captions") and not cut.get(key):
+            continue
         cut.setdefault(key, [])
         for item in cut[key]:
             if not item.get("id"):
@@ -135,7 +143,7 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
     cuts = cut.get("cuts") or []
     if not cuts:
         return errors + ["the cut has no picture: add at least one entry to cuts"], warnings
-    ids = [c.get("id") for c in cuts] + [t.get("id") for t in cut.get("titles", [])] + [s.get("id") for s in cut.get("sounds", [])]
+    ids = [c.get("id") for c in cuts] + [x.get("id") for key in ("titles", "sounds", "voice", "captions") for x in cut.get(key) or []]
     for dup in sorted({i for i in ids if i and ids.count(i) > 1}):
         errors.append(f"id {dup} is used more than once")
     slots = timeline(cut)
@@ -199,6 +207,19 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
             errors.append(f"{sound.get('id')}: unknown sound kind {sound.get('kind')!r} (known: {', '.join(SOUND_KINDS)})")
         if not 0 <= sound.get("at", 0) <= total:
             warnings.append(f"{sound.get('id')}: sound starts outside the film")
+    for item in cut.get("voice") or []:
+        name = item.get("id", "voice")
+        if "src" not in item and "file" not in item:
+            errors.append(f"{name}: a voice entry needs src (a project voice) or file")
+        elif "src" in item and project and not any(v["id"] == item["src"] for v in project.data.get("voices", [])):
+            errors.append(f"{name}: unknown voice {item['src']!r} (workprint voice add FILE)")
+        if not 0 <= item.get("at", 0) <= total:
+            warnings.append(f"{name}: voice starts outside the film")
+    if cut.get("captions"):
+        from .captions import problems
+        more_errors, more_warnings = problems(cut)
+        errors += more_errors
+        warnings += more_warnings
     music = cut.get("music")
     if music and project:
         if not project.data.get("music"):

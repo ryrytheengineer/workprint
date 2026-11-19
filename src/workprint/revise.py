@@ -92,8 +92,8 @@ def insert(cut: dict, project, at: float, shot: str | None = None, src: str | No
 
 
 def remove(cut: dict, item_id: str) -> str:
-    """Remove a cut (the slot before it extends), a title or a sound."""
-    for key in ("cuts", "titles", "sounds"):
+    """Remove a cut (the slot before it extends), a title, a sound, a caption or a placed voice."""
+    for key in ("cuts", "titles", "sounds", "captions", "voice"):
         items = cut.get(key, [])
         for k, item in enumerate(items):
             if item.get("id") == item_id:
@@ -122,13 +122,13 @@ def swap(cut: dict, a: str, b: str) -> str:
 
 
 def shift(cut: dict, start: float, by: float) -> str:
-    """Ripple: move every cut, title and sound at or after ``start`` by ``by`` seconds, changing the film's length."""
+    """Ripple: move every cut, title, sound, voice and caption at or after ``start`` by ``by`` seconds, changing the film's length."""
     fps = cut["format"]["fps"]
     before = [c["at"] for c in cut["cuts"] if c["at"] < start - 0.5 / fps]
     moved = [c for c in cut["cuts"] if c["at"] >= start - 0.5 / fps and c["at"] > 0]
     if moved and before and min(c["at"] for c in moved) + by <= max(before):
         raise ReviseError("that shift would move a cut past the one before it")
-    for key in ("cuts", "titles", "sounds", "voice"):
+    for key in ("cuts", "titles", "sounds", "voice", "captions"):
         for item in cut.get(key) or []:
             if item["at"] >= start - 0.5 / fps and not (key == "cuts" and item["at"] == 0):
                 item["at"] = round(item["at"] + by, 5)
@@ -151,7 +151,8 @@ def assign(cut: dict, target: str, pairs: list[str]) -> str:
     elif target == "film":
         item = cut
     else:
-        item = next((x for key in ("cuts", "titles", "sounds") for x in cut.get(key, []) if x.get("id") == target), None)
+        item = next((x for key in ("cuts", "titles", "sounds", "captions", "voice") for x in cut.get(key) or []
+                     if x.get("id") == target), None)
         if item is None:
             raise ReviseError(f"nothing with id {target!r}")
     for pair in pairs:
@@ -166,8 +167,8 @@ def assign(cut: dict, target: str, pairs: list[str]) -> str:
 
 
 def add(cut: dict, kind: str, pairs: list[str]) -> str:
-    """Add a title or a sound from key=value pairs."""
-    key, prefix = {"title": ("titles", "t"), "sound": ("sounds", "s")}[kind]
+    """Add a title, a sound or a caption from key=value pairs."""
+    key, prefix = {"title": ("titles", "t"), "sound": ("sounds", "s"), "caption": ("captions", "k")}[kind]
     item = {"id": next_id(cut, key, prefix)}
     cut.setdefault(key, []).append(item)
     assign(cut, item["id"], pairs)
@@ -175,4 +176,7 @@ def add(cut: dict, kind: str, pairs: list[str]) -> str:
         raise ReviseError(f"a {kind} needs at=<seconds>")
     if kind == "title":
         item.setdefault("dur", 2.0)
+    if kind == "caption":
+        item.setdefault("style", "line")
+        item.setdefault("dur", round(max(1.2, 0.4 * len(str(item.get("text", "")).split())), 2))
     return f"add {kind} {item['id']} at {item['at']}s"

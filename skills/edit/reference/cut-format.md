@@ -83,3 +83,32 @@ Written by `ingest` and `music`. Per shot: `start`, `end`, `dur` (seconds in the
 `motion` and `camera` (how much the picture and the frame move), `luma`, `contrast`,
 `sat`, `peak` and `calm` (where the liveliest moment and the steadiest stretch begin),
 and your `desc`, `tags`, `rating`. Music: `tempo`, `beats`, `bars`, `sections`, `drops`, `hits`, `key`.
+
+## Voice and captions
+
+In `structure.json` and `cut.json`, `voice` places recordings on the timeline:
+
+    "voice": [{"id": "v001", "src": "V01", "at": 11.88, "in": 0.0, "dur": 5.59, "gain_db": 0}]
+
+`src` is a project voice (`workprint voice add`); `at` is where the excerpt starts in the film,
+`in` and `dur` select part of the recording. Music ducks under speech by `audio.duck_db` (default -6).
+A structure section with `"follow": "voice"` cuts on phrase starts (see the edit skill).
+
+`captions` holds the words on the picture:
+
+    "captions": [{"id": "k003", "at": 12.0, "dur": 2.3, "text": "American industrial", "style": "split",
+                  "voice": "v001", "words": [[0.04, "American"], [0.59, "industrial"]]}]
+
+`style` is `line`, `word`, `split` or `punch`. `words` are offsets from `at`; without them the whole
+text appears at once. `set` overrides style values for one cue: `font` (display, serif, sans), `size`
+(fraction of frame height), `pos` ([x, y], 0..1), `color`, `case` (upper, lower, null), `width`, `shadow`,
+`fade` ([in, out] seconds), `dim` (how far the picture darkens behind a punch word). In split text a `|`
+chooses where the halves divide. Cues made by `workprint captions` carry `voice` and are replaced when it
+runs again; cues without it are yours and are left alone.
+
+Per-version framing lives on the cut entries: `"focus_9x16": [0.62, 0.5]`.
+
+## log/voice-V01.json
+
+`phrases` ([start, end] in recording time), `words` ({w, s, e, stress}), `method` (how the word times
+were obtained: `transcribed+aligned`, `aligned`, `spread`, `imported`, `phrases-only`) and `approximate`.

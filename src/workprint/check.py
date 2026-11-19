@@ -51,7 +51,13 @@ def check(project, cut: dict, render_path, write_review: bool = True) -> dict:
     info = ff.probe(render_path)
     scale = info["width"] / fmt["width"]
     if abs(info["height"] / fmt["height"] - scale) > 0.01:
-        note("fail", f"aspect differs from the cut: {info['width']}x{info['height']} vs {fmt['width']}x{fmt['height']}")
+        from .versions import size_for
+        vw, vh = size_for(fmt, info["width"] / info["height"])
+        if abs(vw / vh - info["width"] / info["height"]) < 0.01:
+            fmt = {**fmt, "width": vw, "height": vh}
+            note("info", f"checked as the {vw}x{vh} version of the cut")
+        else:
+            note("fail", f"aspect differs from the cut: {info['width']}x{info['height']} vs {fmt['width']}x{fmt['height']}")
     if abs(info["fps"] - fps) > 0.01:
         note("fail", f"frame rate is {info['fps']}, the cut asks for {fps}")
     if abs(info["video_duration"] - cut["duration"]) > 1.5 / fps:
@@ -82,6 +88,12 @@ def check(project, cut: dict, render_path, write_review: bool = True) -> dict:
             expected_changes.add(item["f0"])
         if not item["fade_out"]:
             expected_changes.add(item["f1"])
+
+    for cue in cut.get("captions") or []:  # a caption arriving or leaving changes the picture on purpose
+        if "at" in cue and cue.get("dur", 0) > 0:
+            start = int(round(cue["at"] * fps))
+            expected_changes.update([start, start + max(1, int(round(cue["dur"] * fps)))])
+            expected_changes.update(int(round((cue["at"] + t) * fps)) for t, _ in cue.get("words") or [])
 
     def near(frame: int, pool) -> bool:
         return any(abs(frame - p) <= 1 for p in pool)
@@ -186,12 +198,48 @@ def check(project, cut: dict, render_path, write_review: bool = True) -> dict:
         if 0 <= mid < count and abs(text_luma - sig["luma"][mid]) < 0.25 and not (item["spec"].get("style") or {}).get("shadow"):
             note("info", f"title {item['spec'].get('id')} sits on picture of similar brightness: check legibility")
 
+    # ---- voice and captions ------------------------------------------------------------------------
+    speech = None
+    if cut.get("voice") or cut.get("captions"):
+        from . import voice as voice_mod
+        from .captions import compile_cue, style_of
+        spoken = voice_mod.placed(project, cut)
+        phrases = voice_mod.placed_phrases(project, cut)
+        hard = [s["f0"] / fps for s in slots[1:] if transition_of(s["cut"])["type"] in ("cut", "flash")]
+        inside = [(t, w) for t in hard for w in spoken if w["s"] + 0.06 < t < w["e"] - 0.06]
+        led = sum(1 for a, _ in phrases if any(-0.25 <= a - t <= 0.12 for t in [0.0] + hard))
+        speech = {"words": len(spoken), "phrases": len(phrases), "phrases_opening_on_a_cut": led, "cuts_inside_words": len(inside),
+                  "captions": len(cut.get("captions") or [])}
+        for t, w in inside[:8]:
+            note("info", f"the cut at {t:.2f}s lands inside the word {w['w']!r} ({w['s']:.2f}-{w['e']:.2f}s)")
+        mx, my = 0.04 * fmt["width"], 0.04 * fmt["height"]
+        for cue in cut.get("captions") or []:
+            name, style = cue.get("id"), style_of(cue)
+            pieces = compile_cue(cue, fps, fmt["width"], fmt["height"])
+            for piece in pieces:
+                x0, y0, x1, y1 = piece["block"].box()
+                if x0 < mx or y0 < my or x1 > fmt["width"] - mx or y1 > fmt["height"] - my:
+                    note("warn", f"caption {name} extends outside the 4% safe margin")
+                    break
+            mid = int(round((cue["at"] + cue["dur"] / 2) * fps))
+            b, g, r = hex_bgr(style["color"])
+            text_luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
+            if 0 <= mid < count and abs(text_luma - sig["luma"][mid]) < 0.25 and not style.get("shadow") and not style.get("dim"):
+                note("info", f"caption {name} sits on picture of similar brightness: check legibility")
+            if cue.get("voice") and cue.get("words"):
+                first = voice_mod.plain(cue["words"][0][1])
+                said = [w for w in spoken if w["voice"] == cue["voice"] and voice_mod.plain(w["w"]) == first]
+                if said:
+                    drift = min((cue["at"] + cue["words"][0][0] - w["s"] for w in said), key=abs)
+                    if abs(drift) > 1.5 / fps:
+                        note("warn", f"caption {name} is {drift:+.2f}s off the voice: re-run `workprint captions`")
+
     levels = [f["level"] for f in findings]
     verdict = "FAIL" if "fail" in levels else "WARN" if "warn" in levels else "PASS"
     report = {"render": str(render_path), "verdict": verdict, "size": [info["width"], info["height"]], "fps": info["fps"],
               "duration": info["video_duration"], "frames": count,
               "cuts": {"planned_hard": len(planned), "confirmed": len(confirmed), "barely_visible": len(invisible), "unplanned": len(unplanned)},
-              "music_sync": sync, "loudness": loud, "pacing": pacing, "findings": findings}
+              "music_sync": sync, "loudness": loud, "pacing": pacing, "speech": speech, "findings": findings}
 
     if write_review:
         folder = project.root / "review" / render_path.stem
@@ -218,6 +266,10 @@ def summary(report: dict) -> str:
     loud = report.get("loudness")
     if loud:
         lines.append(f"sound: {loud['lufs']} LUFS integrated, true peak {loud['true_peak']} dBTP, range {loud['lra']} LU")
+    v = report.get("speech")
+    if v:
+        lines.append(f"voice: {v['words']} words in {v['phrases']} phrases, {v['phrases_opening_on_a_cut']} phrases open on a cut, "
+                     f"{v['cuts_inside_words']} cuts land inside a word, {v['captions']} captions")
     p = report["pacing"]
     lines.append(f"pacing: {p['shots']} shots, median {p['median_s']}s, shortest {p['shortest_s']}s, longest {p['longest_s']}s")
     for f in report["findings"]:

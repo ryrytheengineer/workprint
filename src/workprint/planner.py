@@ -20,6 +20,11 @@ cut that the editor then reviews and revises; it is a starting point, not a verd
 
 ``every`` is the number of beats between cuts (4 = one bar in 4/4, 0.5 = eighth notes);
 a list splits the section into equal parts with accelerating or relaxing rates.
+
+A structure may also place a voice (``"voice": [{"src": "V01", "at": 4.0}]``). A section
+with ``"follow": "voice"`` then cuts on the breath: a cut just ahead of each phrase (on
+the beat when one is within a tenth of a second), no cut while someone is speaking,
+and the ``every`` grid in the gaps between phrases.
 """
 from __future__ import annotations
 
@@ -42,9 +47,11 @@ def _grid_times(analysis: dict, every: float, anchor: float) -> np.ndarray:
     return g[start::step]
 
 
-def cut_points(analysis: dict | None, music_in: float, sections: list[dict], duration: float, fps: float) -> list[tuple[float, dict]]:
+def cut_points(analysis: dict | None, music_in: float, sections: list[dict], duration: float, fps: float,
+               phrases: list[list[float]] | None = None) -> list[tuple[float, dict]]:
     """Film times of every cut, each with the section it belongs to."""
     points: dict[int, tuple[float, dict]] = {}
+    beats = np.asarray((analysis or {}).get("beats", []), float) - music_in
     for section in sections:
         a, b = float(section["from"]), float(section["to"])
         rates = section.get("every", 4)
@@ -59,10 +66,30 @@ def cut_points(analysis: dict | None, music_in: float, sections: list[dict], dur
                 g = np.arange(a, b, max(2 / fps, float(rate) * 0.5))
             first = lo + 1.5 / fps if k == 0 else lo - 0.5 / fps  # later parts begin with a cut of their own
             times += [float(t) for t in g if first < t < hi - 1.5 / fps]
+        if section.get("follow") == "voice" and phrases:
+            times = _follow_voice(times, a, b, phrases, beats, float(section.get("lead", 2.0 / fps)), fps)
         for t in times:
             if 0 <= t < duration - 1.5 / fps:
                 points.setdefault(int(round(t * fps)), (t, section))
     return [points[f] for f in sorted(points)]
+
+
+def _follow_voice(times: list[float], a: float, b: float, phrases: list[list[float]], beats: np.ndarray, lead: float,
+                  fps: float) -> list[float]:
+    """Cut on the breath: a cut just ahead of each phrase, none while someone is speaking, the grid kept in the gaps."""
+    spoken = [(s, e) for s, e in phrases if a + 1.5 / fps < s - lead < b - 1.5 / fps]
+    anchors = []
+    for s, _ in spoken:
+        t = s - lead
+        if len(beats):  # take the beat instead when one is close enough to pass for it
+            near = float(beats[int(np.argmin(np.abs(beats - t)))])
+            if abs(near - t) <= 0.1 and near < s:
+                t = near
+        anchors.append(t)
+    gap = max(0.4, 6.0 / fps)
+    kept = [t for t in times if t == a or (all(abs(t - x) >= gap for x in anchors)
+                                           and not any(s - lead - 1e-6 < t < e for s, e in phrases))]
+    return sorted(set(kept + anchors))
 
 
 def _usable(shot: dict) -> bool:
@@ -101,7 +128,11 @@ def draft(project, structure: dict) -> dict:
         return float(np.clip((shot["motion"] - lo) / (hi - lo + 1e-9), 0, 1))
 
     pins = {int(round(float(p["at"]) * fps)): p for p in structure.get("pins", [])}
-    points = cut_points(analysis, music_in, structure["sections"], picture_end, fps)
+    phrases = None
+    if structure.get("voice") and any(s.get("follow") == "voice" for s in structure["sections"]):
+        from .voice import placed_phrases
+        phrases = placed_phrases(project, {"voice": structure["voice"]})
+    points = cut_points(analysis, music_in, structure["sections"], picture_end, fps, phrases)
     frames = {int(round(t * fps)) for t, _ in points}
     for f, pin in pins.items():  # a pin always gets its own cut point
         if f not in frames:

@@ -68,6 +68,42 @@ If a command reports something missing, run the `workprint:setup` skill first.
    the film and the decisions that mattered, and anything the check still flags.
    `workprint export --edl cut.edl` (or `--otio`) if they want to finish in an editing application.
 
+## When there is a voice
+
+A voice-over changes what the film is cut to. Do this after step 3, before you write the structure.
+
+1. **Read it.** `workprint voice add FILE` prints the phrases, every word with its time, and the
+   words the speaker leans on. If the voice tools are missing, ask the user before running
+   `workprint voice setup --yes`: it is a one-time 482 MB download of a speech model that runs on
+   their machine. Without it, pass `--script "the words"` or `--words file.json`. If word times
+   come back marked approximate, say so and prefer `line` and `split` captions to `word` and `punch`.
+2. **Do not trust the transcript blindly.** You cannot hear the recording. If the user gave you the
+   words, pass them with `--script` so their spelling and punctuation are used. Show the user what
+   was heard, especially on old or noisy recordings.
+3. **Place it against the music.** `workprint voice place V01 --at T` puts the first word at film
+   time T; `--phrase 2-3` or `--from/--to` uses part of the recording, and several lines are several
+   placements. Put the words that matter on a bar line or just after a hit. A line over a drop fights it.
+4. **Let the picture follow where the voice leads.** Copy the placements into the structure's
+   `"voice"` list and mark those sections `"follow": "voice"`: cuts land just ahead of each phrase and
+   none interrupts one. Where the music leads, leave it off and the cuts stay on the beat.
+5. **Set the words.** `workprint captions --style line|word|split` makes cues from the placed voice.
+   `--punch word,word:2` sets chosen words full-frame; `--accent` puts a different hit under each.
+   Choose punch words for meaning, rarely more than one a sentence: the "leaned on" list measures level,
+   not sense. Re-run after moving a voice. Fix a cue with `workprint set k004 text=...` or `dur=...`,
+   move it with `set k004 set='{"pos":[0.5,0.3]}'`, `remove k004`, or add one by hand:
+   `workprint new caption at=3 text="..." style=punch`.
+6. **Check.** `workprint check` reports cuts that land inside a word, captions that have drifted
+   off the voice, run outside the safe area, or sit on picture of similar brightness.
+
+## Other shapes
+
+For a 9:16, 4:5 or 1:1 version of a finished cut, run `workprint reframe --aspect 9:16`. It proposes
+where each shot sits in the new frame and writes `review/reframe-9x16.jpg`. Read the sheet: the
+proposal follows detail and movement, not meaning, and it will miss subjects. Correct with
+`workprint set c004 focus_9x16=[0.3,0.5]` (0 is left or top, 1 is right or bottom), then
+`workprint render --aspect 9:16` and `workprint check` that file. Captions and titles lay themselves
+out again for the new frame; the 16:9 film and its cache are untouched.
+
 ## When the user asks for a change
 
 Translate the note into the smallest set of revision commands, apply them, render,

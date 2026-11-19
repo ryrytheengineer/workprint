@@ -5,9 +5,9 @@ unless the README says so.
 
 ## Next (0.2)
 
-1. **Captions and voice-led cutting.** Word-timed captions in the typography system and
-   optional transcription (faster-whisper as an optional extra) so a voice-over or
-   dialogue can drive structure the way music does now.
+1. **Voice, further.** 0.2 reads one voice-over in English. Next: an example film cut to a
+   voice, other languages, more than one speaker, dialogue and interview material, and a
+   wider test set than one recording.
 2. **Better bar lines.** The downbeat guess is the weakest measurement. Add an optional
    neural beat/downbeat tracker and let the editor nudge the bar phase by hand.
 3. **Speed that looks good.** Frame blending or optical-flow interpolation for slow
@@ -23,8 +23,8 @@ unless the README says so.
    cut, text behind a subject, selective grades.
 7. **Match-cut search.** Rank pairs of shots by similarity of shape, position and
    motion so the planner can propose match cuts instead of leaving them to luck.
-8. **Aspect-ratio versions.** Reframe a finished cut to 9:16 and 1:1 using per-shot
-   focus points, re-rendering through the same cache.
+8. **Better reframing.** 0.2 proposes a fixed frame per shot from detail and movement.
+   Next: a frame that follows the subject through the shot.
 9. **Colour.** A scene-referred float pipeline, 10-bit output, HDR sources tone-mapped
    on ingest, LUT import, and automatic shot-to-shot balance as a starting point.
 10. **Stems.** Optional Demucs separation so cuts can follow drums alone and the mix

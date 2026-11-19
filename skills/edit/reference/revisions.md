@@ -28,3 +28,17 @@ plain text otherwise (`text=NEVER THE SAME`). Quote arguments that contain space
 
 After revising: `workprint render --proxy`, `workprint check`, look at the storyboard.
 Only the changed chunks render; the rest of the picture is reused bit for bit.
+
+## Voice, captions and versions
+
+| Command | What it does |
+|---|---|
+| `voice add FILE [--script TEXT\|@file] [--words FILE]` | Read a recording: phrases, words, times |
+| `voice show [V01]` | Print what was read |
+| `voice place V01 --at T [--phrase N-M \| --from A --to B] [--gain dB]` | Put it in the film; first word at T |
+| `captions [--voice v001] --style line\|word\|split [--punch w,w:2] [--accent]` | Make cues from the placed voice |
+| `new caption at=T text="..." [style=punch] [dur=S]` | Add a cue by hand |
+| `set k004 text=... dur=... style=...` / `remove k004` | Change or delete a cue; the same for `v001` |
+| `reframe --aspect 9:16 [--slots c003,c004] [--redo]` | Propose per-shot framing for a version |
+| `set c004 focus_9x16=[x,y]` | Correct one shot's framing |
+| `render --aspect 9:16` | Render the version |
