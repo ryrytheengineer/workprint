@@ -23,11 +23,12 @@ from . import ff
 from .project import signature
 from .captions import compile_cue, key_part
 from .captions import draw as draw_captions
-from .look import Finish, Grade, apply_fx, ease, hex_bgr, resolve_look
+from .look import Finish, Grade, apply_fx, ease, hex_bgr, resolve_look, apply_match
 from .manifest import chunk_plan, intercut_frames, source_span, speed_pair, timeline, transition_of, validate
 from .titles import Title, opacity_at, schedule
 from .titles import make as make_title
 from .matte import over as matte_over
+from .matte import wipe as matte_wipe
 from .hud import Hud
 
 RENDER_REV = 1  # bump when a change to this module alters pixels: invalidates every cached chunk
@@ -113,9 +114,11 @@ class Context:
             spec.update({k: entry.get(k) for k in ("in", "speed", "move", "fit", "focus", "freeze")})
             if self.aspect and entry.get(f"focus_{self.aspect}"):
                 spec["focus"] = entry[f"focus_{self.aspect}"]
-            for key in ("interp", "ramp"):  # added only when used, so older cuts keep their cached chunks
+            for key in ("interp", "ramp", "match"):  # added only when used, so older cuts keep their cached chunks
                 if entry.get(key):
                     spec[key] = entry[key]
+            if self.aspect and entry.get(f"focus_{self.aspect}_to"):
+                spec["focus_to"] = entry[f"focus_{self.aspect}_to"]
             if entry.get("intercut"):
                 spec["intercut"] = [entry["intercut"], self.project.source(entry["intercut"]["src"])["sig"]]
         return spec
@@ -123,7 +126,7 @@ class Context:
     def slot_spec(self, i: int) -> dict:
         spec = dict(self._core(i))
         spec["t"] = transition_of(self.slots[i]["cut"])
-        if spec["t"]["type"] == "dissolve":
+        if spec["t"]["type"] in ("dissolve", "matte"):
             spec["prev"] = self._core(i - 1)
         if i + 1 < len(self.slots):
             after = transition_of(self.slots[i + 1]["cut"])
@@ -145,7 +148,8 @@ class Context:
         instruments = self.hud.key_part(f0, f1)
         if instruments:
             payload["hud"] = instruments
-        if any(self.behind_at(f) for f in range(f0, f1)):
+        if any(self.behind_at(f) for f in range(f0, f1)) or any(
+                transition_of(s["cut"])["type"] == "matte" and s["f0"] < f1 and s["f1"] > f0 for s in self.slots):
             from .matte import MODEL
             payload["matte"] = MODEL["name"]
         words = key_part(self.cut.get("captions"), f0, f1, self.fps)
@@ -218,6 +222,24 @@ class MappedReader:
         self.reader.close()
 
 
+class Travelling:
+    """A reader whose frame moves across the decoded picture from one read to the next."""
+
+    def __init__(self, reader, boxes: list[tuple[int, int, int, int]]):
+        self.reader, self.boxes, self.k = reader, boxes, 0
+
+    def read(self) -> np.ndarray | None:
+        frame = self.reader.read()
+        if frame is None:
+            return None
+        x, y, w, h = self.boxes[min(self.k, len(self.boxes) - 1)]
+        self.k += 1
+        return np.ascontiguousarray(frame[y:y + h, x:x + w])
+
+    def close(self) -> None:
+        self.reader.close()
+
+
 class SlotPlayer:
     """Frames of one slot, in order, after reframing, camera move, grade and effects.
 
@@ -249,6 +271,7 @@ class SlotPlayer:
         self.freeze = bool(entry.get("freeze"))
         sw, sh = source["width"], source["height"]
         self.contain = entry.get("fit") == "contain"
+        travel = None
         if self.contain:
             k = min(self.W / sw, self.H / sh)
             scale, crop = (_even(sw * k), _even(sh * k)), None
@@ -263,6 +286,11 @@ class SlotPlayer:
             fx_, fy_ = (ctx.aspect and entry.get(f"focus_{ctx.aspect}")) or entry.get("focus") or (0.5, 0.5)
             scale, crop = (dw, dh), (cw, ch, int((dw - cw) * fx_), int((dh - ch) * fy_))
             self.frame_w, self.frame_h = cw, ch
+            end = ctx.aspect and entry.get(f"focus_{ctx.aspect}_to")
+            if end and start_local == 0:  # decode the whole picture and move the frame across it, eased
+                steps = [ease(k / max(1, self.n - 1), "inout") for k in range(self.n)]
+                travel = [(int((dw - cw) * (fx_ + (end[0] - fx_) * p)), int((dh - ch) * (fy_ + (end[1] - fy_) * p)), cw, ch) for p in steps]
+                crop = None
         s0, s1 = speed_pair(entry)
         a, b = source_span(entry, self.n, ctx.fps)
         if start_local == 0:
@@ -286,6 +314,8 @@ class SlotPlayer:
                                        positions, mode or "nearest")
         else:
             self.reader = ff.FrameReader(ctx.project.path_of(source), start, ctx.fps, scale, crop, source.get("matrix", "bt709"), time_map)
+        if travel:
+            self.reader = Travelling(self.reader, travel)
         cutaway = entry.get("intercut")
         if cutaway and override is None and start_local == 0:  # a second shot that this one flickers to
             self.other_frames = intercut_frames(entry, self.n, ctx.fps)
@@ -332,6 +362,8 @@ class SlotPlayer:
                 raw = self.last if self.last is not None else np.zeros((self.frame_h, self.frame_w, 3), np.uint8)
             self.last = raw
             frame = self._reframe(raw, min(local, self.n - 1))
+            if self.entry.get("match"):
+                frame = apply_match(frame, self.entry["match"])
         return apply_fx(self.grade.apply(frame), self.fx, local, self.n)
 
     def close(self) -> None:
@@ -362,11 +394,16 @@ def render_chunk(ctx: Context, index: int) -> dict:
             after = transition_of(ctx.slots[i + 1]["cut"]) if i + 1 < len(ctx.slots) else {"type": "cut", "frames": 0}
             fade_out = after["frames"] // 2 if after["type"] == "dip" else 0
             player = SlotPlayer(ctx, i)
-            outgoing = SlotPlayer(ctx, i - 1, ctx.slots[i - 1]["f1"] - ctx.slots[i - 1]["f0"]) if trans["type"] == "dissolve" else None
+            outgoing = SlotPlayer(ctx, i - 1, ctx.slots[i - 1]["f1"] - ctx.slots[i - 1]["f0"]) if trans["type"] in ("dissolve", "matte") else None
             try:
                 for local in range(n):
                     frame = player.next()
-                    if outgoing is not None and local < trans["frames"]:
+                    if outgoing is not None and local < trans["frames"] and trans["type"] == "matte":
+                        if local == 0:  # the new shot arrives through, or behind, the outgoing shot's subject
+                            ctx.matte.reset()
+                        leaving = outgoing.next()
+                        frame = matte_wipe(leaving, frame, ctx.matte.of(leaving), (local + 1) / (trans["frames"] + 1), trans.get("style", "through"))
+                    elif outgoing is not None and local < trans["frames"]:
                         frame = cv2.addWeighted(outgoing.next(), 1.0 - (local + 1) / (trans["frames"] + 1), frame,
                                                 (local + 1) / (trans["frames"] + 1), 0)
                     elif trans["type"] == "dip":
@@ -435,11 +472,13 @@ def render(project, cut: dict, out: Path | None = None, scale: float = 1.0, crf:
         raise RenderError("the cut does not validate:\n  " + "\n  ".join(errors))
     started = time.time()
     behind = any((c.get("set") or {}).get("behind") for c in cut.get("captions") or []) or \
-        any((t.get("style") or {}).get("behind") for t in cut.get("titles") or [])
+        any((t.get("style") or {}).get("behind") for t in cut.get("titles") or []) or \
+        any(transition_of(c)["type"] == "matte" for c in cut.get("cuts") or [])
     if behind:
         from .matte import tools as matte_tools
         if not all(matte_tools().values()):
-            raise RenderError("this cut puts words behind a subject, which needs the matte tools: run `workprint matte setup`")
+            raise RenderError("this cut uses a subject matte (words behind a subject, or a matte transition), "
+                              "which needs the matte tools: run `workprint matte setup`")
     job = plan(project, cut, scale, crf, preset, aspect)
     ctx, todo = job["ctx"], job["todo"]
     jobs = jobs or max(1, min(4, (os.cpu_count() or 2) // 2))

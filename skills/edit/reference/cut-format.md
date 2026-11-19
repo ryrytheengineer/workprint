@@ -132,3 +132,10 @@ were obtained: `transcribed+aligned`, `aligned`, `spread`, `imported`, `phrases-
   `{"kind": "counter", "from": 0, "to": 3900, "decimals": 0, "prefix": "", "suffix": " HRS", "pos": [0.08, 0.9], "scale": 1.6, "ease": "linear"}`,
   `{"kind": "rail", "label": "...", "timecode": true, "margin": 0.055}`. All accept `color`, `opacity`, `size`, `weight`.
 - Voice `treat`: `restore`, or `denoise` (0..1) inside a treatment dict.
+
+## Added in 0.5
+
+- Transition `"t": {"type": "matte", "frames": 14, "style": "through"|"hold"}` (needs the matte tools).
+- Caption `set`: `"in"` (`pop`, `grow`, `slide`, `rise`, `drop`) and `"in_dur"` (seconds, default 0.14).
+- Cut entries: `match` (`{"from": [[mean], [spread]], "to": [...], "amount": 0.8, "ref": "c001"}`, written by `workprint match`)
+  and `focus_9x16_to` (where a version's frame ends up; with `focus_9x16` as where it starts).

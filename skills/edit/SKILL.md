@@ -121,6 +121,12 @@ Use these when the brief or the user asks for them, not by default. Each is one 
   frames the picture. Keep a track inside one shot and on a subject with clear detail; check a frame near its end.
 - **An old or noisy recording.** `workprint set v001 treat=restore` reduces steady hiss and hum. It needs pauses in
   the recording to learn the noise from. You cannot hear whether it thinned the voice: ask the user to listen.
+- **Through the subject.** `workprint set c007 t='{"type":"matte","frames":14}'` opens the new shot from inside
+  the outgoing shot's subject; `"style":"hold"` brings it in behind a subject that lingers. Needs the matte tools.
+  Use it once or twice, out of a shot with one clear subject, and look at three frames of it.
+- **Type that moves.** `workprint captions ... --enter pop|grow|slide|rise|drop`, or `set k004 set='{"in":"pop"}'`.
+- **Matching shots.** `workprint match c004 --to c001` when footage from different sources should sit together
+  (archive beside modern, two cameras). Compare frames afterwards; lower `--amount` if it overshoots.
 - **End card.** `workprint endcard --text "LINE ONE|LINE TWO" --logo mark.svg --wordmark word.svg [--tint]`.
   Use the brand's own files, supplied by the user; do not redraw a logo.
 - **Words behind the subject.** `workprint set k004 set='{"behind": true}'` (titles: `style.behind`). Needs
@@ -128,6 +134,14 @@ Use these when the brief or the user asks for them, not by default. Each is one 
   use it on one or two strong shots with a clear subject, and look at the frame.
 - **A photograph as a shot.** `workprint still photo.jpg --dur 4 --move drift|push|parallax`, then `ingest`.
   `parallax` needs the matte tools; keep it for photos with one clear subject.
+
+## Finishing for posting
+
+After the cut is approved: `workprint loop` (the end dissolves back into the opening, for players that repeat),
+`workprint cover [--at T]` (look at the frame it picks; choose your own with `--at` if another says more) and
+`workprint deliver [--mbps 10]` (a smaller upload file). Each works on the latest render, or on a file you name.
+For the tall version, `workprint reframe --aspect 9:16 --follow` lets the frame travel during a shot whose
+subject crosses the picture.
 
 ## Other shapes
 

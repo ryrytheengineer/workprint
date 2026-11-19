@@ -8,7 +8,7 @@ Workprint is for editors, filmmakers and creative directors who already know wha
 good cut is and want the distance between an idea and a watchable first cut to be
 minutes. It is not a template engine or a podcast clipper.
 
-By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.4.0.
+By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.5.0.
 
 ![Storyboard of the example film](examples/return/review/storyboard.jpg)
 
@@ -47,6 +47,12 @@ How it was made, shot by shot: [`examples/return/`](examples/return/).*
 - **Draws instruments.** Brackets or a reticle that track something through a shot with a label
   and live readout, a counter in fixed-width figures, and a frame rail with timecode.
 - **Cleans an old recording.** Noise reduction for hiss and hum under a voice (`treat=restore`).
+- **Transitions through the subject.** With the cut-out model, the next shot can open from
+  inside the outgoing shot's subject, or arrive behind it while the subject lingers.
+- **Moves the type.** Captions and punch words can pop, grow, slide, rise or drop in.
+- **Matches shots.** One slot's brightness, contrast and colour balance moved toward another's.
+- **Finishes for posting.** A loop version whose end dissolves back into its start, a cover
+  image, and a smaller upload file with a bitrate ceiling.
 - **Closes with the brand.** An end card with a stacked title and a logo and wordmark from
   PNG or SVG files.
 - **Puts words behind the subject**, and turns a photograph into a shot with depth, using an
@@ -117,6 +123,11 @@ workprint -p film intercut c012 --shot A004-07 --every 2
 workprint -p film new hud kind=track at=12 dur=2.5 box='[0.42,0.2,0.16,0.6]' label="SLS"
 workprint -p film new hud kind=counter at=3 dur=5 from=0 to=3900 suffix=" HRS"
 workprint -p film set v001 treat=restore              # noise reduction for an old recording
+workprint -p film set c007 t='{"type":"matte","frames":14}'    # transition through the subject
+workprint -p film captions --style word --enter pop
+workprint -p film match c004 --to c001                # colour-match one shot to another
+workprint -p film reframe --aspect 9:16 --follow      # the tall frame travels with the subject
+workprint -p film loop && workprint -p film cover && workprint -p film deliver
 workprint -p film endcard --text "NEVER|THE SAME" --logo mark.svg --wordmark word.svg
 workprint -p film still photo.jpg --move parallax    # a photograph becomes footage
 workprint -p film render && workprint -p film check
@@ -148,7 +159,7 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 
 | | |
 |---|---|
-| Test suite | 57 tests, all passing: 54 on synthetic media with exact expected answers, 3 that run only where an optional tool is installed (speech model, cut-out model, SVG converter) |
+| Test suite | 63 tests, all passing: 60 on synthetic media with exact expected answers, 3 that run only where an optional tool is installed (speech model, cut-out model, SVG converter) |
 | Example film | 11 clips (30 minutes of 1080p footage) to a checked 41 s film, end to end |
 | Shot logging | 146 shots found in 30 minutes of footage, 4 to 6 times faster than real time |
 | Render | 1080p at about 16 frames per second, 960x540 proxy at 23 to 30, 341 MB peak memory |
@@ -163,6 +174,8 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 | Effects | X-ray variants inspected on a real frame; flicker and smooth slow motion verified frame by frame on synthetic clips |
 | Noise reduction | Real speech with hiss and hum added 18 dB under it: the voice went from 19 to 39 dB above the noise floor and the transcript was unchanged. Not tested on a recording that was noisy to begin with |
 | HUD | Tracker held a subject moving 117 px across synthetic frames to within 5 px; reticle, rail and counter rendered on a real shot and inspected |
+| Matte transition | Rendered out of a real rocket shot with the real model and inspected over four frames; passed by the checker |
+| Moving type, colour match, loop, cover, upload file, travelling frame | Verified by measurement on synthetic clips only |
 | End card | Laid out and rendered with real SVG logos, inspected, passed by the checker |
 | Mattes | Inspected on three real frames and one rendered shot (a word behind a rocket); about 1.6 s per matted frame on 2 CPU cores |
 | Captions and versions | Four caption styles and a 9:16 re-render of a 41 s trial film, inspected frame by frame and passed by the checker. No example film ships with them yet |
@@ -198,6 +211,14 @@ Read these before relying on it.
   nearly static real shot. Keep a track inside one shot.
 - **Noise reduction needs pauses to learn the noise from**, handles only steady noise, and
   thins the voice if pushed. Listen to it.
+- **A matte transition is only as good as the matte.** It suits a shot with one clear subject
+  and costs over a second a frame. With no clear subject it becomes a dissolve.
+- **Colour matching compares whole frames**, source to source, before the film's grade. Two
+  shots of different things can share statistics and still not look alike. Look at them.
+- **The travelling vertical frame moves in a straight eased line** from where the detail is at
+  the start of a shot to where it is at the end. It does not track a subject frame by frame.
+- **The cover pick is a score** for sharpness, colour and exposure. It does not know which
+  frame says the most.
 - **Plain x-ray inverts the picture**, so dark footage turns white. Use `"positive": true` there.
 - **Reframing is a proposal** made from detail and movement, not from recognising a
   subject. It will be wrong on some shots; the review sheet is there to be read.

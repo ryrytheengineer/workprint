@@ -339,6 +339,8 @@ def cmd_captions(args) -> int:
     for voice_id in ids:
         for cue in from_words([w for w in words if w["voice"] == voice_id], args.style, punch, voice=voice_id, fps=cut["format"]["fps"]):
             cue = {"id": next_id(cut, "captions", "k"), **cue}
+            if args.enter:
+                cue["set"] = {"in": args.enter}
             cut.setdefault("captions", []).append(cue)
             made.append(cue)
     for cue in made:
@@ -417,6 +419,55 @@ def cmd_render(args) -> int:
     if args.json:
         print(json.dumps(stats))
     return 0
+
+
+def _render_file(project, given) -> Path:
+    path = Path(given) if given else max((project.root / "renders").glob("*.mp4"), key=lambda p: p.stat().st_mtime, default=None)
+    if path is None or not path.exists():
+        raise ValueError("no render to work from: run `workprint render` first, or name a file")
+    return path
+
+
+def cmd_finish(args) -> int:
+    """loop, cover and deliver: what leaves the project after the cut is locked."""
+    from . import finish
+    project = _project(args)
+    source = _render_file(project, args.render)
+    if args.cmd == "loop":
+        target = source.with_name(source.stem + "-loop.mp4")
+        made = finish.loop(source, target, args.over)
+        print(f"{target}: {made['duration']:.2f}s; the last {made['overlap_frames']} frames dissolve into the opening")
+    elif args.cmd == "cover":
+        target = source.with_name(source.stem + "-cover.jpg")
+        at = finish.cover(source, target, args.at)
+        print(f"{target}: the frame at {at:.2f}s" + ("" if args.at is not None else " (picked for sharpness, colour and exposure: look at it)"))
+    else:
+        target = source.with_name(source.stem + "-upload.mp4")
+        made = finish.deliver(source, target, args.mbps)
+        print(f"{target}: {made['bytes'] / 1e6:.1f} MB (from {made['was'] / 1e6:.1f} MB), {made['duration']:.2f}s, video held under {args.mbps:g} Mbps")
+    return 0
+
+
+def cmd_match(args) -> int:
+    """Move one slot's colour toward another's, measured on their source frames."""
+    from . import revise, versions
+    from .look import colour_stats
+    from .manifest import timeline
+    project = _project(args)
+    cut = project.cut()
+    slots = {s["cut"].get("id"): s for s in timeline(cut)}
+    if args.cut not in slots:
+        raise ValueError(f"unknown cut {args.cut!r}")
+    entry = slots[args.cut]["cut"]
+    if args.off:
+        entry.pop("match", None)
+        return _save(project, cut, args.message or f"{args.cut}: colour match removed", args.force)
+    if args.to not in slots or "src" not in slots[args.to]["cut"] or "src" not in entry:
+        raise ValueError("match needs two cuts that show footage: workprint match c004 --to c001")
+    fps = cut["format"]["fps"]
+    stats = [colour_stats(versions._samples(project, s["cut"], s["f1"] - s["f0"], fps)) for s in (slots[args.cut], slots[args.to])]
+    entry["match"] = {"from": stats[0], "to": stats[1], "amount": args.amount, "ref": args.to}
+    return _save(project, cut, args.message or f"{args.cut}: colour matched to {args.to}", args.force)
 
 
 def cmd_matte(args) -> int:
@@ -544,7 +595,7 @@ def cmd_reframe(args) -> int:
     cut = project.cut()
     tag, ratio = versions.parse(args.aspect)
     only = [s.strip() for s in args.slots.split(",")] if args.slots else None
-    done = versions.propose(project, cut, tag, ratio, only, args.redo)
+    done = versions.propose(project, cut, tag, ratio, only, args.redo, args.follow)
     for cut_id, focus in done:
         print(f"  {cut_id}  focus_{tag} = {focus}")
     target = versions.sheet(project, cut, tag, ratio, project.root / "review" / f"reframe-{tag}.jpg")
@@ -730,6 +781,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--style", choices=["line", "word", "split"], default="line")
     p.add_argument("--punch", help="words to set full-frame, comma separated; word:2 means the second time it is said")
     p.add_argument("--accent", action="store_true", help="put a designed hit under each punch word, each one different")
+    p.add_argument("--enter", choices=["pop", "grow", "slide", "rise", "drop"], help="how each caption arrives")
     p.add_argument("--keep", action="store_true", help="add to existing captions instead of replacing them")
     p.add_argument("-m", "--message")
     p.add_argument("--force", action="store_true")
@@ -747,6 +799,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--crf", type=int, help="x264 quality, lower is better and larger (default 20; 23 for --proxy)")
     p.add_argument("--jobs", type=int)
     p.add_argument("--json", action="store_true")
+    for name, text in (("loop", "write a version whose end dissolves back into its start"),
+                       ("cover", "save a cover image from the render"), ("deliver", "write a smaller file for uploading")):
+        p = command(name, cmd_finish, text)
+        p.add_argument("render", nargs="?")
+        if name == "loop":
+            p.add_argument("--over", type=float, default=0.5, help="seconds of overlap")
+        elif name == "cover":
+            p.add_argument("--at", type=float, help="film time of the frame; chosen automatically if omitted")
+        else:
+            p.add_argument("--mbps", type=float, default=10.0)
+    p = command("match", cmd_match, "match one slot's colour to another's")
+    p.add_argument("cut")
+    p.add_argument("--to")
+    p.add_argument("--amount", type=float, default=0.8)
+    p.add_argument("--off", action="store_true")
+    p.add_argument("-m", "--message")
+    p.add_argument("--force", action="store_true")
     p = command("matte", cmd_matte, "optional subject mattes (words behind a subject, parallax stills): matte setup")
     p.add_argument("action", choices=["setup"])
     p.add_argument("--yes", action="store_true")
@@ -780,6 +849,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--aspect", required=True)
     p.add_argument("--slots", help="only these cut ids, comma separated (re-measures them)")
     p.add_argument("--redo", action="store_true", help="measure every slot again, replacing earlier choices")
+    p.add_argument("--follow", action="store_true", help="let the frame travel during a shot when its subject moves across")
     p.add_argument("-m", "--message")
     p.add_argument("--force", action="store_true")
     p = command("check", cmd_check, "measure a render against the cut, the music and the brief")

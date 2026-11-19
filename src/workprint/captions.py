@@ -39,6 +39,7 @@ STYLES = {
               "shadow": 0.0, "fade": [0.0, 0.0], "reveal": "all", "tracking": -0.01, "leading": 1.0, "dim": 0.5, "max_chars": 16},
 }
 CAPTIONS_REV = 1  # bump when a change here alters pixels: invalidates only chunks that carry captions
+ENTRANCES = ("pop", "grow", "slide", "rise", "drop")  # how a caption can arrive: set {"in": "pop"}
 BREAK = re.compile(r"[.!?]$")
 SOFT = re.compile(r"[,;:—]$")
 
@@ -145,17 +146,25 @@ class Block:
             return self.x + x0, self.y, self.x + x1, self.y + self.mask.shape[0]
         return self.x + x0 + int(cols[0]), self.y + int(rows[0]), self.x + x0 + int(cols[-1]) + 1, self.y + int(rows[-1]) + 1
 
-    def draw(self, frame: np.ndarray, opacity: float, lo: int = 0, hi: int | None = None) -> None:
-        """Composite words lo..hi-1 onto ``frame`` in place."""
+    def draw(self, frame: np.ndarray, opacity: float, lo: int = 0, hi: int | None = None, scale: float = 1.0,
+             dx: float = 0.0, dy: float = 0.0) -> None:
+        """Composite words lo..hi-1 onto ``frame`` in place, optionally scaled about their centre and shifted."""
         hi = len(self.spans) if hi is None else hi
         if opacity <= 0 or hi <= lo:
             return
         mask, x0, shadow, blur = self._state(lo, hi)
+        left, top = self.x + x0 + dx, self.y + dy
+        if abs(scale - 1.0) > 1e-3:
+            h, w = mask.shape
+            mask = cv2.resize(mask, (max(1, int(round(w * scale))), max(1, int(round(h * scale)))), interpolation=cv2.INTER_LINEAR)
+            left, top = left - (mask.shape[1] - w) / 2, top - (mask.shape[0] - h) / 2
+            shadow = None
+        left, top = int(round(left)), int(round(top))
         if shadow is not None:
-            where, a = self._region(frame, shadow, self.x + x0 - 2 * blur, self.y - 2 * blur + max(1, blur // 3))
+            where, a = self._region(frame, shadow, left - 2 * blur, top - 2 * blur + max(1, blur // 3))
             if where:
                 frame[where] = (frame[where] * (1.0 - a[..., None] * opacity)).astype(np.uint8)
-        where, a = self._region(frame, mask, self.x + x0, self.y)
+        where, a = self._region(frame, mask, left, top)
         if where:
             a = a[..., None] * opacity
             frame[where] = (frame[where] * (1.0 - a) + self.color * a + 0.5).astype(np.uint8)
@@ -211,7 +220,9 @@ def compile_cue(cue: dict, fps: float, width: int, height: int) -> list[dict]:
     def piece(block, a, b, lo, hi, first=True, last=True, dim=0.0):
         if b > a:
             pieces.append({"block": block, "f0": a, "f1": b, "lo": lo, "hi": hi, "fade_in": fade_in if first else 0,
-                           "fade_out": fade_out if last else 0, "dim": dim, "behind": bool(style.get("behind"))})
+                           "fade_out": fade_out if last else 0, "dim": dim, "behind": bool(style.get("behind")),
+                           "enter": (style.get("in"), max(1, int(round(float(style.get("in_dur", 0.14)) * fps))), width, height)
+                           if first and style.get("in") in ENTRANCES else None})
 
     if reveal == "one":
         for k, word in enumerate(words):
@@ -239,9 +250,11 @@ def compile_cue(cue: dict, fps: float, width: int, height: int) -> list[dict]:
             y = cy - (len(lines) - 1 - row) * style.get("leading", 1.2) * size
             block = Block(words[a:b], style, size, limit, (cx, y))
             if reveal == "words":
+                shown = False
                 for k in range(a, b):
-                    start = f0 if k == 0 else on[k]
-                    piece(block, start, on[k + 1] if k + 1 < len(words) else f1, 0, k - a + 1, first=(k == a), last=False)
+                    start, stop = (f0 if k == 0 else on[k]), (on[k + 1] if k + 1 < len(words) else f1)
+                    piece(block, start, stop, 0, k - a + 1, first=not shown, last=False)
+                    shown = shown or stop > start
                 if b < len(words):  # the finished line stays while the next one builds
                     piece(block, on[b], f1, 0, b - a, first=False)
                 elif pieces:
@@ -270,7 +283,15 @@ def draw(pieces: list[dict], frame: np.ndarray, index: int) -> np.ndarray:
     if dim > 0:
         np.multiply(frame, 1.0 - dim, out=frame, casting="unsafe")
     for p, a in active:
-        p["block"].draw(frame, a, p["lo"], p["hi"])
+        scale, dx, dy = 1.0, 0.0, 0.0
+        if p.get("enter") and index < p["f0"] + p["enter"][1]:  # the words arrive: overshoot and settle
+            kind, frames, width, height = p["enter"]
+            q = 1.0 - (1.0 - (index - p["f0"] + 1) / (frames + 1)) ** 3
+            scale = {"pop": 1.0 + 0.4 * (1.0 - q), "grow": 0.7 + 0.3 * q}.get(kind, 1.0)
+            dx = {"slide": -0.05 * width * (1.0 - q)}.get(kind, 0.0)
+            dy = {"rise": 0.04 * height * (1.0 - q), "drop": -0.04 * height * (1.0 - q)}.get(kind, 0.0)
+            a *= min(1.0, 0.35 + q)
+        p["block"].draw(frame, a, p["lo"], p["hi"], scale, dx, dy)
     return frame
 
 
@@ -353,6 +374,8 @@ def problems(cut: dict) -> tuple[list[str], list[str]]:
             warnings.append(f"{name}: on screen for {cue['dur']:.2f}s, too short to read")
         elif style.get("reveal") != "one" and cue.get("style") != "punch" and len(text) / cue["dur"] > 24:
             warnings.append(f"{name}: {len(text) / cue['dur']:.0f} characters a second is fast to read ({text[:28]!r})")
+        if style.get("in") and style["in"] not in ENTRANCES:
+            errors.append(f"{name}: unknown entrance {style['in']!r} (known: {', '.join(ENTRANCES)})")
         if cue.get("style") == "punch" and len(text.split()) > 3:
             warnings.append(f"{name}: a punch caption works with one to three words, this has {len(text.split())}")
         if cue.get("words") and len(cue["words"]) != len(text.replace("|", " ").split()):

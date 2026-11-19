@@ -40,7 +40,8 @@ SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick"
 FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "xray-scan", "xray-pulse", "xray-flicker", "mono", "shake")
 RAMPS = {"linear": 0.5, "inout": 0.5, "in": 1.0 / 3.0, "out": 2.0 / 3.0}  # mean of each easing curve
 INTERP = ("nearest", "blend", "flow")
-TRANSITIONS = ("cut", "dissolve", "dip", "flash")
+TRANSITIONS = ("cut", "dissolve", "dip", "flash", "matte")
+OVERLAPS = ("dissolve", "matte")  # transitions during which the outgoing shot keeps running
 
 
 def frame_of(t: float, fps: float) -> int:
@@ -143,6 +144,8 @@ def transition_of(entry: dict) -> dict:
     out = {"type": t.get("type", "cut"), "frames": int(t.get("frames", 0 if t.get("type", "cut") == "cut" else 8))}
     if "color" in t:
         out["color"] = t["color"]
+    if "style" in t:  # matte: through (default) or hold
+        out["style"] = t["style"]
     return out
 
 
@@ -186,7 +189,7 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
         t = transition_of(entry)
         if t["type"] not in TRANSITIONS:
             errors.append(f"{name}: unknown transition {t['type']!r}")
-        elif t["type"] == "dissolve":
+        elif t["type"] in OVERLAPS:
             if i == 0:
                 errors.append(f"{name}: the first cut cannot dissolve in")
             elif t["frames"] >= frames:

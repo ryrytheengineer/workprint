@@ -61,3 +61,9 @@ Only the changed chunks render; the rest of the picture is reused bit for bit.
 
 | `new hud kind=track\|counter\|rail at=T dur=S ...` / `set h001 ...` / `remove h001` | Instrument overlays (0.4) |
 | `set v001 treat=restore` | Noise reduction for an old recording (0.4) |
+
+| `set c007 t='{"type":"matte","frames":14}'` | Transition through the outgoing subject (0.5) |
+| `captions --enter pop` / `set k004 set='{"in":"pop"}'` | Captions arrive with a move (0.5) |
+| `match c004 --to c001 [--amount 0.8]` / `--off` | Colour-match one slot to another (0.5) |
+| `reframe --aspect 9:16 --follow` | Let a version's frame travel during a shot (0.5) |
+| `loop [FILE] [--over 0.5]`, `cover [FILE] [--at T]`, `deliver [FILE] [--mbps 10]` | Loop version, cover image, upload file (0.5) |

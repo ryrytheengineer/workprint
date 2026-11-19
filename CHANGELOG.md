@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 (2026-11-19)
+
+- Matte transition (`"t": {"type": "matte"}`): the next shot opens through, or behind,
+  the outgoing subject.
+- Caption entrances (`pop`, `grow`, `slide`, `rise`, `drop`).
+- `workprint match`: colour-match one slot to another.
+- `workprint loop`, `workprint cover`, `workprint deliver`.
+- `workprint reframe --follow`: a version's frame can travel during a shot.
+
 ## 0.4.0 (2026-11-19)
 
 - HUD overlays (`hud` list, `workprint new hud`): tracking brackets, box or reticle with

@@ -132,6 +132,22 @@ def _zoom_about_centre(frame: np.ndarray, z: float) -> np.ndarray:
     return cv2.warpAffine(frame, m, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
 
 
+def colour_stats(frames: list[np.ndarray]) -> list[list[float]]:
+    """Mean and spread of a few frames in Lab: what ``match`` moves one shot toward another with."""
+    lab = np.concatenate([cv2.cvtColor(f, cv2.COLOR_BGR2LAB).reshape(-1, 3) for f in frames]).astype(np.float32)
+    return [[round(float(v), 2) for v in lab.mean(0)], [round(float(v), 2) for v in lab.std(0) + 1e-3]]
+
+
+def apply_match(frame: np.ndarray, spec: dict) -> np.ndarray:
+    """Move a frame's brightness, contrast and colour balance toward a reference shot's."""
+    (m0, s0), (m1, s1) = spec["from"], spec["to"]
+    amount = float(spec.get("amount", 0.8))
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB).astype(np.float32)
+    ratio = 1.0 + amount * (np.clip(np.array(s1) / np.array(s0), 0.5, 2.0) - 1.0)
+    lab = (lab - np.array(m0, np.float32)) * ratio.astype(np.float32) + np.array(m0, np.float32) + amount * (np.array(m1, np.float32) - np.array(m0, np.float32))
+    return cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
+
+
 def xray(frame: np.ndarray, spec: dict | None = None) -> np.ndarray:
     """The x-ray look. Options: ``tint`` (hex colour of the highlights), ``detail`` (edge strength), ``deep``
     (local contrast and a soft glow, for flat or dark footage), ``positive`` (do not invert: for footage that is mostly dark)."""

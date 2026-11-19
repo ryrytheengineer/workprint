@@ -117,6 +117,26 @@ def over(front: np.ndarray, back: np.ndarray, alpha: np.ndarray) -> np.ndarray:
     return (front * a + back * (1.0 - a) + 0.5).astype(np.uint8)
 
 
+def wipe(old: np.ndarray, new: np.ndarray, alpha: np.ndarray, p: float, style: str = "through") -> np.ndarray:
+    """A transition led by the outgoing shot's subject, at progress ``p`` (0..1).
+
+    ``through``: the new shot opens from the heart of the subject, fills its silhouette, then spreads to the frame.
+    ``hold``: the new shot arrives at once behind the subject, which stays a moment and lets go.
+    With no clear subject it falls back to a dissolve.
+    """
+    solid = alpha > 0.5
+    if not solid.any() or solid.all():
+        return cv2.addWeighted(old, 1.0 - p, new, p, 0)
+    if style == "hold":
+        return over(old, new, alpha * (1.0 - p * p * (3 - 2 * p)))
+    inside = cv2.distanceTransform(solid.astype(np.uint8), cv2.DIST_L2, 3)
+    outside = cv2.distanceTransform((~solid).astype(np.uint8), cv2.DIST_L2, 3)
+    signed = outside - inside  # negative deep inside the subject, growing outward
+    lo, hi = -float(inside.max()) - 1.0, float(outside.max()) + 1.0
+    edge = max(2.0, 0.008 * old.shape[1])
+    return over(new, old, np.clip((lo + (hi - lo) * p - signed) / edge, 0.0, 1.0))
+
+
 # ---- stills into shots -----------------------------------------------------------------------------
 MOVES = ("push", "drift", "parallax")
 

@@ -48,20 +48,20 @@ def _window(profile: np.ndarray, frac: float) -> float:
     return round(best / max(1, n - size), 2)
 
 
-def _samples(project, entry: dict, frames: int, fps: float) -> list[np.ndarray]:
+def _samples(project, entry: dict, frames: int, fps: float, at=(0.15, 0.5, 0.85)) -> list[np.ndarray]:
     source = project.source(entry["src"])
     a, b = source_span(entry, frames, fps)
     b = min(b, source["duration"] - 1.0 / fps)
-    return [ff.grab_frame(project.path_of(source), max(0.0, a + (b - a) * k), 320) for k in (0.15, 0.5, 0.85)]
+    return [ff.grab_frame(project.path_of(source), max(0.0, a + (b - a) * k), 320) for k in at]
 
 
-def focus_of(project, entry: dict, frames: int, fps: float, ratio: float) -> list[float] | None:
+def focus_of(project, entry: dict, frames: int, fps: float, ratio: float, at=(0.15, 0.5, 0.85)) -> list[float] | None:
     """A proposed focus for one slot, or None when the source already has the version's shape."""
     source = project.source(entry["src"])
     shape = source["width"] / source["height"]
     if abs(shape - ratio) < 0.01:
         return None
-    grays = [cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.float32) for f in _samples(project, entry, frames, fps)]
+    grays = [cv2.cvtColor(f, cv2.COLOR_BGR2GRAY).astype(np.float32) for f in _samples(project, entry, frames, fps, at)]
     detail = sum(cv2.GaussianBlur(np.abs(cv2.Laplacian(g, cv2.CV_32F)), (0, 0), 4) for g in grays)
     motion = sum(cv2.GaussianBlur(cv2.absdiff(a, b), (0, 0), 4) for a, b in zip(grays, grays[1:]))
     weight = detail / (detail.mean() + 1e-6)
@@ -73,8 +73,13 @@ def focus_of(project, entry: dict, frames: int, fps: float, ratio: float) -> lis
     return [float(old[0]), _window(weight.sum(1), shape / ratio)]
 
 
-def propose(project, cut: dict, tag: str, ratio: float, only: list[str] | None = None, redo: bool = False) -> list[tuple[str, list[float]]]:
-    """Write a focus for this version into every slot that lacks one. Returns what was set."""
+def propose(project, cut: dict, tag: str, ratio: float, only: list[str] | None = None, redo: bool = False,
+            follow: bool = False) -> list[tuple[str, list[float]]]:
+    """Write a focus for this version into every slot that lacks one. Returns what was set.
+
+    With ``follow``, the start and the end of each shot are measured separately; where they differ, the frame
+    travels from one to the other during the shot (``focus_9x16_to``).
+    """
     fps = cut["format"]["fps"]
     key, done = f"focus_{tag}", []
     for slot in timeline(cut):
@@ -85,8 +90,14 @@ def propose(project, cut: dict, tag: str, ratio: float, only: list[str] | None =
             continue
         focus = focus_of(project, entry, slot["f1"] - slot["f0"], fps, ratio)
         if focus is not None:
+            entry.pop(key + "_to", None)
+            if follow and slot["f1"] - slot["f0"] >= 12:
+                first = focus_of(project, entry, slot["f1"] - slot["f0"], fps, ratio, (0.05, 0.15, 0.25))
+                last = focus_of(project, entry, slot["f1"] - slot["f0"], fps, ratio, (0.75, 0.85, 0.95))
+                if max(abs(first[0] - last[0]), abs(first[1] - last[1])) >= 0.08:
+                    focus, entry[key + "_to"] = first, last
             entry[key] = focus
-            done.append((entry.get("id", "?"), focus))
+            done.append((entry.get("id", "?"), focus + (["->"] + entry[key + "_to"] if key + "_to" in entry else [])))
     return done
 
 
