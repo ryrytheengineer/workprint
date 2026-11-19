@@ -73,6 +73,8 @@ def cmd_doctor(args) -> int:
         print(f"  ok       opentimelineio {opentimelineio.__version__} (optional: .otio export)")
     except ImportError:
         print("  optional opentimelineio not installed (.otio export unavailable; EDL export still works)")
+    from .titles import svg_tool
+    print(f"  {'ok      ' if svg_tool() else 'optional'} SVG logos: " + (svg_tool() or "no converter found (PNG logos still work; `brew install librsvg` adds SVG)"))
     from .voice import tools
     have = tools()
     if all(have.values()):
@@ -414,6 +416,50 @@ def cmd_render(args) -> int:
     return 0
 
 
+def cmd_endcard(args) -> int:
+    """Lay out a closing card: big stacked title, and under it a logo and a wordmark side by side."""
+    from .manifest import next_id, timeline
+    from .titles import load_image
+    project = _project(args)
+    cut = project.cut()
+    fmt, dur = cut["format"], float(args.dur)
+    last = sorted(cut["cuts"], key=lambda c: c["at"])[-1]
+    if "card" in last and not args.append:
+        at = last["at"]
+        cut["duration"] = round(at + dur, 5)
+    else:
+        at = cut["duration"]
+        cut["cuts"].append({"id": next_id(cut, "cuts", "c"), "at": at, "card": {"bg": args.bg}, "note": "end card"})
+        cut["duration"] = round(at + dur, 5)
+    sorted(cut["cuts"], key=lambda c: c["at"])[-1]["card"] = {"bg": args.bg}
+    cut["titles"] = [t for t in cut.get("titles") or [] if t.get("role") != "endcard" and t.get("id") != "t_end"]
+    marks = [m for m in (args.logo, args.wordmark) if m]
+    base = {"at": round(at + 0.1, 3), "dur": round(dur - 0.1, 3), "fade": [0.0, 0.4], "role": "endcard"}
+    if args.text:
+        lines = args.text.replace("|", "\n")
+        size = min(0.2, 0.5 / max(1, lines.count("\n") + 1))
+        cut["titles"].append({"id": next_id(cut, "titles", "t"), **base, "text": lines,
+                              "style": {"font": "display", "upper": True, "size": size, "width": 0.8, "leading": 1.0, "color": args.color,
+                                        "pos": [0.5, 0.42 if marks else 0.5]}})
+    if marks:  # one row, centred: each image at the same visual height, a gap between them
+        heights = [0.075, 0.045][:len(marks)] if args.logo else [0.045]
+        y = 0.8 if args.text else 0.5
+        widths = []
+        for path, h in zip(marks, heights):
+            image = load_image(Path(path).expanduser() if Path(path).expanduser().is_absolute() else project.root / path, 64)
+            widths.append(h * fmt["height"] * image.width / image.height / fmt["width"])
+        gap = 0.018
+        x = 0.5 - (sum(widths) + gap * (len(widths) - 1)) / 2
+        for path, h, w in zip(marks, heights, widths):
+            style = {"height": h, "pos": [round(x + w / 2, 4), y]}
+            if args.tint:
+                style["color"] = args.color
+            cut["titles"].append({"id": next_id(cut, "titles", "t"), **base, "image": str(path), "style": style})
+            x += w + gap
+    print(f"end card at {at:.2f}s for {dur:.2f}s: " + ", ".join(t.get("text", t.get("image", "")).replace("\n", " / ") for t in cut["titles"] if t.get("role") == "endcard"))
+    return _save(project, cut, args.message or "end card", args.force)
+
+
 def cmd_intercut(args) -> int:
     from . import revise
     project = _project(args)
@@ -649,6 +695,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--crf", type=int, help="x264 quality, lower is better and larger (default 20; 23 for --proxy)")
     p.add_argument("--jobs", type=int)
     p.add_argument("--json", action="store_true")
+    p = command("endcard", cmd_endcard, "lay out a closing card: stacked title, logo and wordmark")
+    p.add_argument("--text", help="the title; | starts a new line")
+    p.add_argument("--logo", help="a mark: PNG with transparency, or SVG")
+    p.add_argument("--wordmark", help="a text logo: PNG with transparency, or SVG")
+    p.add_argument("--dur", type=float, default=3.0)
+    p.add_argument("--bg", default="#000000")
+    p.add_argument("--color", default="#f4f1ea")
+    p.add_argument("--tint", action="store_true", help="redraw the logos in --color (for one-colour logos)")
+    p.add_argument("--append", action="store_true", help="add a new card after the film even if it already ends on one")
+    p.add_argument("-m", "--message")
+    p.add_argument("--force", action="store_true")
     p = command("intercut", cmd_intercut, "make a slot flicker back and forth to a second shot")
     p.add_argument("cut")
     p.add_argument("--shot")

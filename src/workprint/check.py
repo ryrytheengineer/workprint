@@ -16,7 +16,8 @@ import numpy as np
 from . import ff, music as music_mod, sheets, shots
 from .look import hex_bgr
 from .manifest import alternate_frames, intercut_frames, speed_pair, timeline, transition_of, validate
-from .titles import Title, schedule
+from .titles import make as make_title
+from .titles import schedule
 
 
 def _runs(mask: np.ndarray, min_len: int) -> list[tuple[int, int]]:
@@ -195,7 +196,7 @@ def check(project, cut: dict, render_path, write_review: bool = True) -> dict:
 
     # ---- titles ----------------------------------------------------------------------------------
     for item in schedule(cut.get("titles"), fps):
-        title = Title(item["spec"], fmt["width"], fmt["height"])
+        title = make_title(item["spec"], fmt["width"], fmt["height"], project.root)
         x0, y0, x1, y1 = title.box
         mx, my = 0.05 * fmt["width"], 0.05 * fmt["height"]
         if x0 < mx or y0 < my or x1 > fmt["width"] - mx or y1 > fmt["height"] - my:
@@ -203,7 +204,8 @@ def check(project, cut: dict, render_path, write_review: bool = True) -> dict:
         mid = min(count - 1, (item["f0"] + item["f1"]) // 2)
         b, g, r = hex_bgr({**{"color": "#f4f1ea"}, **(item["spec"].get("style") or {})}["color"])
         text_luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
-        if 0 <= mid < count and abs(text_luma - sig["luma"][mid]) < 0.25 and not (item["spec"].get("style") or {}).get("shadow"):
+        if (not item["spec"].get("image") and 0 <= mid < count and abs(text_luma - sig["luma"][mid]) < 0.25
+                and not (item["spec"].get("style") or {}).get("shadow")):
             note("info", f"title {item['spec'].get('id')} sits on picture of similar brightness: check legibility")
 
     # ---- voice and captions ------------------------------------------------------------------------

@@ -237,7 +237,11 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
                                 f"({shot['start'] - a:.2f}s into the slot)")
     total = cut["duration"]
     for title in cut.get("titles", []):
-        if not str(title.get("text", "")).strip():
+        if title.get("image"):
+            image = Path(title["image"])
+            if project and not (image if image.is_absolute() else project.root / image).exists():
+                errors.append(f"{title.get('id')}: no such image {title['image']!r}")
+        elif not str(title.get("text", "")).strip():
             errors.append(f"{title.get('id')}: title has no text")
         if title.get("at", 0) < 0 or title.get("at", 0) + title.get("dur", 0) > total + 1e-6:
             warnings.append(f"{title.get('id')}: title runs outside the film")

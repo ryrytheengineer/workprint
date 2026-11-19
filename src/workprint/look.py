@@ -134,13 +134,13 @@ def _zoom_about_centre(frame: np.ndarray, z: float) -> np.ndarray:
 
 def xray(frame: np.ndarray, spec: dict | None = None) -> np.ndarray:
     """The x-ray look. Options: ``tint`` (hex colour of the highlights), ``detail`` (edge strength), ``deep``
-    (local contrast and a soft glow, for flat or dark footage)."""
+    (local contrast and a soft glow, for flat or dark footage), ``positive`` (do not invert: for footage that is mostly dark)."""
     spec = spec or {}
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     if spec.get("deep"):
         gray = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
     edges = cv2.convertScaleAbs(cv2.Laplacian(gray, cv2.CV_16S, ksize=3), alpha=float(spec.get("detail", 1.5)))
-    inv = cv2.add(255 - gray, edges)
+    inv = cv2.add(gray if spec.get("positive") else 255 - gray, edges)  # positive: keep dark footage dark, light the edges
     if spec.get("deep"):
         inv = cv2.addWeighted(inv, 0.85, cv2.GaussianBlur(inv, (0, 0), max(2.0, frame.shape[0] * 0.012)), 0.35, 0)
     b, g, r = (c / 255.0 for c in hex_bgr(spec["tint"])) if spec.get("tint") else (1.0, 0.92, 0.78)

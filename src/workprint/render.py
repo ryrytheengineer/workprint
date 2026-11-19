@@ -20,11 +20,13 @@ import cv2
 import numpy as np
 
 from . import ff
+from .project import signature
 from .captions import compile_cue, key_part
 from .captions import draw as draw_captions
 from .look import Finish, Grade, apply_fx, ease, hex_bgr, resolve_look
 from .manifest import chunk_plan, intercut_frames, source_span, speed_pair, timeline, transition_of, validate
 from .titles import Title, opacity_at, schedule
+from .titles import make as make_title
 
 RENDER_REV = 1  # bump when a change to this module alters pixels: invalidates every cached chunk
 
@@ -75,7 +77,7 @@ class Context:
     @property
     def titles(self) -> list[tuple[dict, Title]]:
         if self._titles is None:
-            self._titles = [(item, Title(item["spec"], self.W, self.H)) for item in self.title_plan]
+            self._titles = [(item, make_title(item["spec"], self.W, self.H, self.project.root)) for item in self.title_plan]
         return self._titles
 
     @property
@@ -120,6 +122,10 @@ class Context:
                   for item in self.title_plan if item["f0"] < f1 and item["f1"] > f0]
         payload = {"rev": RENDER_REV, "size": [self.W, self.H], "fps": self.fps, "crf": self.crf, "preset": self.preset,
                    "look": resolve_look(self.cut.get("look")), "slots": [self.slot_spec(i) for i in chunk["slots"]], "titles": titles}
+        pictures = [signature(p if p.is_absolute() else self.project.root / p) for p in
+                    (Path(item["spec"]["image"]) for item in self.title_plan if item["spec"].get("image") and item["f0"] < f1 and item["f1"] > f0)]
+        if pictures:
+            payload["pictures"] = pictures
         words = key_part(self.cut.get("captions"), f0, f1, self.fps)
         if words:  # only present when there are captions, so cuts without them keep their cached chunks
             payload["captions"] = words

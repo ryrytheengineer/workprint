@@ -126,3 +126,85 @@ def opacity_at(item: dict, frame: int) -> float:
     k_in = (frame - item["f0"] + 1) / (item["fade_in"] + 1) if item["fade_in"] else 1.0
     k_out = (item["f1"] - frame) / (item["fade_out"] + 1) if item["fade_out"] else 1.0
     return float(min(1.0, k_in, k_out))
+
+
+# ---- pictures: a logo or any image placed like a title -------------------------------------------
+SVG_TOOLS = (("rsvg-convert", lambda src, out, w: ["rsvg-convert", "-w", str(w), "-o", out, src]),
+             ("resvg", lambda src, out, w: ["resvg", "-w", str(w), src, out]),
+             ("inkscape", lambda src, out, w: ["inkscape", src, "--export-type=png", f"--export-width={w}", f"--export-filename={out}"]),
+             ("magick", lambda src, out, w: ["magick", "-background", "none", "-density", "300", src, "-resize", f"{w}x", out]))
+
+
+def svg_tool() -> str | None:
+    import shutil
+    try:
+        import cairosvg  # noqa: F401
+        return "cairosvg"
+    except Exception:
+        return next((name for name, _ in SVG_TOOLS if shutil.which(name)), None)
+
+
+def load_image(path: Path, width_px: int) -> Image.Image:
+    """An RGBA image ``width_px`` wide. SVG is drawn at that size by whichever converter is installed."""
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"no such image: {path}")
+    if path.suffix.lower() == ".svg":
+        import io
+        import subprocess
+        import tempfile
+        tool = svg_tool()
+        if tool is None:
+            raise RuntimeError(f"{path.name} is an SVG and no converter is installed. Install librsvg (`brew install librsvg`, "
+                               "`apt install librsvg2-bin`) or Inkscape, or export the logo as a PNG with transparency.")
+        if tool == "cairosvg":
+            import cairosvg
+            image = Image.open(io.BytesIO(cairosvg.svg2png(url=str(path), output_width=width_px)))
+        else:
+            with tempfile.TemporaryDirectory() as folder:
+                out = str(Path(folder) / "logo.png")
+                subprocess.run(dict(SVG_TOOLS)[tool](str(path), out, width_px), check=True, capture_output=True)
+                image = Image.open(out)
+                image.load()
+        return image.convert("RGBA")
+    image = Image.open(path).convert("RGBA")
+    return image.resize((width_px, max(1, round(image.height * width_px / image.width))), Image.LANCZOS)
+
+
+class Picture:
+    """An image placed in the frame. ``style``: ``width`` or ``height`` (fraction of the frame), ``pos``, ``align``,
+    ``opacity``, and ``color`` to redraw a one-colour logo in that colour using its transparency as the shape."""
+
+    def __init__(self, spec: dict, width: int, height: int, root=None):
+        style = {"pos": [0.5, 0.5], "width": 0.2, "align": "center", "opacity": 1.0, **(spec.get("style") or {})}
+        path = Path(spec["image"])
+        path = path if path.is_absolute() else Path(root or ".") / path
+        if "height" in (spec.get("style") or {}):
+            probe = load_image(path, 64)
+            w = max(2, int(round(style["height"] * height * probe.width / probe.height)))
+        else:
+            w = max(2, int(round(style["width"] * width)))
+        image = np.asarray(load_image(path, w), np.float32)
+        self.mask = image[..., 3] / 255.0 * float(style["opacity"])
+        self.rgb = image[..., 2::-1].copy()  # BGR
+        if style.get("color"):
+            self.rgb[:] = hex_bgr(style["color"])
+        h = image.shape[0]
+        cx, cy = style["pos"][0] * width, style["pos"][1] * height
+        left = {"left": cx, "right": cx - w}.get(style["align"], cx - w / 2)
+        self.x, self.y = int(round(left)), int(round(cy - h / 2))
+        self.box = (self.x, self.y, self.x + w, self.y + h)
+
+    def draw(self, frame: np.ndarray, opacity: float) -> None:
+        if opacity <= 0:
+            return
+        where, a = Title._region(frame, self.mask, self.x, self.y)
+        if where:
+            _, colour = Title._region(frame, self.rgb, self.x, self.y)
+            a = a[..., None] * opacity
+            frame[where] = (frame[where] * (1.0 - a) + colour * a + 0.5).astype(np.uint8)
+
+
+def make(spec: dict, width: int, height: int, root=None):
+    """A Title for text, a Picture for an image."""
+    return Picture(spec, width, height, root) if spec.get("image") else Title(spec, width, height)
