@@ -84,3 +84,64 @@ def test_voice_level_is_measured_and_improved_by_the_carve(project, tmp_path, no
     render(project, quiet, out, 0.5, 30, "ultrafast", progress=lambda *_: None)
     report = check.check(project, quiet, out, write_review=False)
     assert report["speech"]["voice_over_music_db"] < 6 and any("hard to follow" in f["text"] for f in report["findings"])
+
+
+def drum_track(path, bpm=120.0, bars=8):
+    rng = np.random.default_rng(5)
+    beat = 60.0 / bpm
+    total = bars * 4 * beat + 1.0
+    t = np.arange(int(total * SR)) / SR
+    x = 0.05 * np.sin(2 * np.pi * 220 * t) + 0.04 * np.sin(2 * np.pi * 660 * t)  # a held chord that must not count
+    truth = {"kick": [], "snare": [], "hat": []}
+
+    def add(at, sound):
+        i = int(at * SR)
+        x[i:i + len(sound)] += sound[:len(x) - i]
+
+    for k in range(bars * 8):
+        at = 0.5 + k * beat / 2
+        n = int(0.03 * SR)
+        add(at, sosfilt(butter(4, 7500, "highpass", fs=SR, output="sos"), rng.normal(0, 0.25, n)) * np.exp(-np.arange(n) / (0.006 * SR)))
+        truth["hat"].append(at)
+        if k % 4 == 0:
+            n = int(0.18 * SR)
+            tt = np.arange(n) / SR
+            add(at, 0.8 * np.sin(2 * np.pi * (45 * tt + 60 * 0.05 * (1 - np.exp(-tt / 0.05)))) * np.exp(-tt / 0.06))
+            truth["kick"].append(at)
+        if k % 4 == 2:
+            n = int(0.14 * SR)
+            add(at, sosfilt(butter(2, [200, 9000], "bandpass", fs=SR, output="sos"), rng.normal(0, 0.5, n)) * np.exp(-np.arange(n) / (0.03 * SR)))
+            truth["snare"].append(at)
+    ff.write_wav(path, x[:, None], SR)
+    return truth
+
+
+def test_drum_hits_are_found_by_kind(tmp_path):
+    from workprint import music
+    truth = drum_track(tmp_path / "d.wav")
+    found = music.analyze(tmp_path / "d.wav")["drums"]
+    for kind, need in (("kick", 0.9), ("snare", 0.9), ("hat", 0.75)):
+        hits = np.array(found[kind])
+        want = np.array(truth[kind]) if kind != "hat" else np.array([t for t in truth["hat"] if t not in truth["snare"]])
+        recall = np.mean([np.abs(hits - t).min() < 0.03 for t in want]) if len(hits) else 0.0
+        precision = np.mean([np.abs(np.array(truth[kind]) - h).min() < 0.03 for h in hits]) if len(hits) else 0.0
+        assert recall >= need and precision >= need, f"{kind}: recall {recall:.2f}, precision {precision:.2f}, {len(hits)} found"
+    log = {"drums": found}
+    assert abs(music.nearest_hit(log, "snare", truth["snare"][2] + 0.04) - truth["snare"][2]) < 0.03
+    assert music.nearest_hit(log, "snare", 1.23, within=0.01) == 1.23
+
+
+def test_cuts_can_land_on_the_kick(project):
+    from workprint import planner, revise
+    log = project.music()
+    kicks = np.array(log["drums"]["kick"])
+    assert len(kicks) > 8
+    start = float(kicks[4]) - 0.01
+    structure = {"duration": 6.0, "music_in": start, "sections": [{"name": "drums", "from": 0, "to": 6.0, "energy": 0.8, "every": 2, "on": "kick"}]}
+    cut = planner.draft(project, structure)
+    for entry in cut["cuts"][1:]:
+        assert np.abs(kicks - (entry["at"] + start)).min() <= 0.5 / 24 + 0.012, f"{entry['id']} at {entry['at']} is not on a kick"
+    target = cut["cuts"][2]
+    wanted = float(kicks[np.argmin(np.abs(kicks - (target["at"] + start + 0.2)))]) - start
+    revise.roll(cut, target["id"], to=target["at"] + 0.2, analysis=log, on="kick")
+    assert abs(target["at"] - wanted) < 1e-3

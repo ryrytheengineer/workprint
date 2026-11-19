@@ -204,6 +204,8 @@ def cmd_music(args) -> int:
         print(f"  {s['from']:>7.2f}-{s['to']:<7.2f} bars {s['bars'][0]:>3}-{s['bars'][1]:<3} energy {s['energy']:.2f}  {s['label']}")
     for d in analysis["drops"]:
         print(f"  drop at {d['t']:.2f}s (bar {d['bar']}, strength {d['strength']})")
+    drums = analysis.get("drums") or {}
+    print("  drum hits found: " + ", ".join(f"{len(drums.get(k, []))} {k}" for k in ("kick", "snare", "hat")))
     return 0
 
 
@@ -479,7 +481,7 @@ def cmd_revise(args) -> int:
         elif args.cmd == "slip":
             message = revise.slip(cut, args.cut, args.delta)
         elif args.cmd == "roll":
-            message = revise.roll(cut, args.cut, args.by, args.to, project.music(), args.snap, args.keep_in)
+            message = revise.roll(cut, args.cut, args.by, args.to, project.music(), args.snap, args.keep_in, args.on)
         elif args.cmd == "insert":
             message = revise.insert(cut, project, args.at, args.shot, args.src, args.start)
         elif args.cmd == "remove":
@@ -649,6 +651,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--by", type=float)
     p.add_argument("--to", type=float)
     p.add_argument("--snap", type=float, help="snap to the musical grid: 1 = beats, 2 = eighths, 0.25 = bars")
+    p.add_argument("--on", choices=["kick", "snare", "hat"], help="land on the nearest drum hit of this kind")
     p.add_argument("--keep-in", action="store_true")
     p = revision("insert", "start a new slot at a time")
     p.add_argument("--at", type=float, required=True)

@@ -58,6 +58,56 @@ def onset_strength(mag: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return norm(flux.sum(1)), norm(flux[:, :low_bins].sum(1))
 
 
+def _pick(env: np.ndarray, min_gap: float, k: float = 3.0, floor: float = 0.15) -> np.ndarray:
+    """Frames where ``env`` peaks clearly above its own recent level."""
+    from scipy.ndimage import maximum_filter1d, median_filter
+    if not env.any():
+        return np.array([], int)
+    width = int(FPS) | 1
+    middle = median_filter(env, size=width, mode="nearest")
+    spread = median_filter(np.abs(env - middle), size=width, mode="nearest") + 1e-9
+    reach = max(1, int(min_gap * FPS / 2))
+    top = maximum_filter1d(env, size=2 * reach + 1, mode="nearest")
+    return np.flatnonzero((env == top) & (env > middle + k * spread) & (env > floor * np.percentile(env, 99.5)))
+
+
+def drum_hits(mag: np.ndarray) -> dict:
+    """Times of drum hits by kind, measured from the track itself (no stem separation).
+
+    A kick is a sudden rise at the bottom of the spectrum. A snare is a burst that is wide
+    in frequency and short in time, strong in the mids and above them at once. A hat is
+    the same kind of burst confined to the top. Sustained sound (notes, voices) is set
+    aside first by comparing each point with its neighbours in time and in frequency.
+    Clear, dry drums are found reliably; dense or heavily processed mixes less so.
+    """
+    from scipy.ndimage import median_filter
+    comp = np.log1p(10.0 * mag)
+    hz = SR / NFFT
+    rise = lambda x: np.maximum(np.diff(x, axis=0, prepend=x[:1]), 0.0)
+    kick = rise(comp[:, 1:int(130 / hz) + 1]).sum(1)
+    short = comp * (median_filter(comp, size=(1, 17), mode="nearest") > median_filter(comp, size=(17, 1), mode="nearest"))
+    flux = rise(short)
+    band = lambda lo, hi: flux[:, int(lo / hz):int(hi / hz) + 1].sum(1)
+    unit = lambda x: x / (np.percentile(x, 99.5) + 1e-9)
+    snare = np.sqrt(unit(band(180, 2500)) * unit(band(2500, 7000)))
+    hat = unit(band(7000, 11000))
+    found = {"kick": _pick(kick, 0.14, k=5.0, floor=0.45), "snare": _pick(snare, 0.12, floor=0.3), "hat": _pick(hat, 0.06)}
+    if len(found["kick"]):  # the click at the front of a kick is not a snare
+        found["snare"] = np.array([f for f in found["snare"] if np.abs(found["kick"] - f).min() > 2], int)
+    if len(found["snare"]):  # a snare also lights the top band: do not count it as a hat too
+        found["hat"] = np.array([f for f in found["hat"] if np.abs(found["snare"] - f).min() > 2], int)
+    return {name: [round(float(f) * HOP / SR, 3) for f in frames] for name, frames in found.items()}
+
+
+def nearest_hit(music: dict, kind: str, t: float, within: float | None = None) -> float:
+    """The drum hit of ``kind`` nearest to ``t`` (music time); ``t`` itself if there is none within ``within`` seconds."""
+    hits = np.asarray((music.get("drums") or {}).get(kind, []), float)
+    if not len(hits):
+        return t
+    best = float(hits[int(np.argmin(np.abs(hits - t)))])
+    return best if within is None or abs(best - t) <= within else t
+
+
 def estimate_tempo(env: np.ndarray, lo: float = 60.0, hi: float = 200.0) -> tuple[float, list[float]]:
     x = env - env.mean()
     n = int(2 ** np.ceil(np.log2(2 * len(x))))
@@ -203,7 +253,7 @@ def analyze(path) -> dict:
         "beats": [round(float(t), 3) for t in beats], "bar_phase": phase, "bar_phase_confidence": round(float(phase_conf), 2),
         "bars": [round(float(t), 3) for t in bars], "bar_energy": [round(float(v), 2) for v in bar_e],
         "bar_low": [round(float(v), 2) for v in bar_l], "sections": sections, "drops": drops[:6], "hits": hits,
-        "key": _estimate_key(y),
+        "key": _estimate_key(y), "drums": drum_hits(mag),
     }
 
 

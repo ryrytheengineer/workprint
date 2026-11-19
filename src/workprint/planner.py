@@ -21,6 +21,10 @@ cut that the editor then reviews and revises; it is a starting point, not a verd
 ``every`` is the number of beats between cuts (4 = one bar in 4/4, 0.5 = eighth notes);
 a list splits the section into equal parts with accelerating or relaxing rates.
 
+A section with ``"on": "kick"`` (or ``snare``, ``hat``) keeps the ``every`` grid but moves
+each cut onto the nearest drum hit of that kind within a quarter of a beat, so cuts sit
+on the transient itself and not on the idealised grid.
+
 A structure may also place a voice (``"voice": [{"src": "V01", "at": 4.0}]``). A section
 with ``"follow": "voice"`` then cuts on the breath: a cut just ahead of each phrase (on
 the beat when one is within a tenth of a second), no cut while someone is speaking,
@@ -66,6 +70,10 @@ def cut_points(analysis: dict | None, music_in: float, sections: list[dict], dur
                 g = np.arange(a, b, max(2 / fps, float(rate) * 0.5))
             first = lo + 1.5 / fps if k == 0 else lo - 0.5 / fps  # later parts begin with a cut of their own
             times += [float(t) for t in g if first < t < hi - 1.5 / fps]
+        if section.get("on") and analysis and (analysis.get("drums") or {}).get(section["on"]):
+            reach = 0.25 * float(np.median(np.diff(analysis["beats"]))) if len(analysis.get("beats", [])) > 1 else 0.12
+            times = sorted({times[0], *(music_mod.nearest_hit(analysis, section["on"], t + music_in, reach) - music_in
+                                         for t in times[1:])})
         if section.get("follow") == "voice" and phrases:
             times = _follow_voice(times, a, b, phrases, beats, float(section.get("lead", 2.0 / fps)), fps)
         for t in times:

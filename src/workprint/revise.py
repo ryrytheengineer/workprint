@@ -59,7 +59,7 @@ def slip(cut: dict, cut_id: str, delta: float) -> str:
 
 
 def roll(cut: dict, cut_id: str, by: float | None = None, to: float | None = None, analysis: dict | None = None,
-         snap: float | None = None, keep_in: bool = False) -> str:
+         snap: float | None = None, keep_in: bool = False, on: str | None = None) -> str:
     """Move the cut point at the head of a slot. The slot before it gets longer or shorter."""
     i, slot, slots = _slot(cut, cut_id)
     if i == 0:
@@ -71,6 +71,11 @@ def roll(cut: dict, cut_id: str, by: float | None = None, to: float | None = Non
     if snap and analysis and cut.get("music"):
         offset = cut["music"].get("in", 0.0)
         new = music_mod.snap(analysis, new + offset, snap) - offset
+    if on and analysis and cut.get("music"):
+        if not (analysis.get("drums") or {}).get(on):
+            raise ReviseError(f"no {on} hits in the music log (run `workprint music` again to measure the drums)")
+        offset = cut["music"].get("in", 0.0)
+        new = music_mod.nearest_hit(analysis, on, new + offset) - offset
     lo, hi = slots[i - 1]["f0"] / fps + 1 / fps, slot["f1"] / fps - 1 / fps
     if not lo <= new <= hi:
         raise ReviseError(f"{cut_id} can move between {lo:.3f}s and {hi:.3f}s; {new:.3f}s is outside")
