@@ -216,3 +216,52 @@ def test_versions_reframe_and_render(project):
 def test_the_speech_model_loads():
     silence = np.zeros(voice.SR * 2)
     assert voice.transcribe(silence, []) == []
+
+
+
+# ---- checking excerpts as cut (0.6) -------------------------------------------------------------
+def placed_excerpts(project, tmp_path, excerpts, captions_for=None):
+    """A cut with the synthetic speech placed as the given (in, dur) excerpts."""
+    entry = project.add_voice(make_speech(tmp_path / "v.wav"))
+    project.save()
+    (project.log_dir / f"voice-{entry['id']}.json").write_text(json.dumps(
+        {"duration": 6.0, "phrases": [list(s) for s in SPANS], "method": "imported", "approximate": False,
+         "words": [{"w": w, "s": a, "e": b, "stress": 0.5} for w, (a, b) in zip(("one", "two", "three"), SPANS)]}))
+    cut = three_slot_cut(project)
+    cut["voice"] = [{"id": f"v{i + 1:03d}", "src": entry["id"], "at": 0.5 * i, "in": a, "dur": d} for i, (a, d) in enumerate(excerpts)]
+    if captions_for:
+        cut["captions"] = [{"id": "k001", "at": 0.0, "dur": 1.0, "text": captions_for, "style": "line", "voice": "v001"}]
+    return cut
+
+
+def test_an_excerpt_cut_in_the_pauses_passes(project, tmp_path, no_tools):
+    report = voice.check_placed(project, placed_excerpts(project, tmp_path, [(0.3, 1.4), (1.8, 1.6)]))
+    assert [r["problems"] for r in report] == [[], []]
+    assert abs(report[0]["lead"] - 0.2) < 0.05 and abs(report[0]["tail"] - 0.3) < 0.05
+    assert report[0]["heard"] is None  # no speech model here: only the edges were looked at
+
+
+def test_an_excerpt_that_starts_or_stops_inside_a_word_is_flagged(project, tmp_path, no_tools):
+    inside_start, inside_end, tight_end = voice.check_placed(project, placed_excerpts(project, tmp_path, [(0.9, 0.8), (1.8, 0.9), (1.8, 1.33)]))
+    assert inside_start["starts_inside"] and any("starts inside" in p for p in inside_start["problems"])
+    assert inside_end["ends_inside"] and any("ends inside" in p for p in inside_end["problems"])
+    assert not tight_end["ends_inside"] and tight_end["tail"] < 0.08 and any("may be cut" in p for p in tight_end["problems"])
+
+
+def test_words_that_are_not_in_the_excerpt_are_reported(project, tmp_path, monkeypatch):
+    monkeypatch.setattr(voice, "tools", lambda: {"aligner": False, "recognizer": True, "model": True})
+    monkeypatch.setattr(voice, "_recognize", lambda x: [{"w": "And", "s": 0.1}, {"w": "um", "s": 0.4}])
+    cut = placed_excerpts(project, tmp_path, [(0.3, 1.4)], captions_for="And that's the sales pitch.")
+    row = voice.check_placed(project, cut)[0]
+    assert row["heard"] == "And um" and row["expected_from"] == "captions"
+    assert row["missing"] == ["that's", "the", "sales", "pitch."] and row["extra"] == ["um"]
+    assert any("differ" in p for p in row["problems"])
+
+
+def test_voice_check_command_fails_when_an_excerpt_is_clipped(project, tmp_path, no_tools, capsys):
+    project.save_cut(manifest.normalize(placed_excerpts(project, tmp_path, [(0.9, 0.8)])), "clipped")
+    assert cli.main(["-p", str(project.root), "voice", "check"]) == 1
+    out = capsys.readouterr().out
+    assert "WARN v001" in out and "starts inside" in out and "only the edges were checked" in out
+    project.save_cut(manifest.normalize(placed_excerpts(project, tmp_path, [(0.3, 1.4)])), "clean")
+    assert cli.main(["-p", str(project.root), "voice", "check"]) == 0

@@ -162,3 +162,29 @@ def test_noise_reduction_lowers_the_floor_and_keeps_the_voice():
     assert len(clean) == len(noisy) and vox.denoise(noisy, SR, 0.0) is noisy
     restored = vox.treat(noisy, SR, vox.settings("restore"))
     assert restored.shape == (len(noisy), 2) and rms(restored[:, 0], 4.8, 5.8) < rms(noisy, 4.8, 5.8) - 12
+
+
+# ---- the wider effects kit (0.6) ------------------------------------------------------------------
+def test_every_sound_in_the_kit_builds_and_is_the_same_each_time():
+    from workprint import manifest, sound
+    assert set(sound.KIT) == set(manifest.SOUND_KINDS) == set(sound.TRIM)
+    for kind in sound.KIT:
+        spec = {"id": "s001", "kind": kind, "db": -10}
+        audio, lead = sound.make(spec)
+        again, _ = sound.make(spec)
+        assert audio.ndim == 2 and audio.shape[1] == 2 and len(audio) > 0.04 * sound.SR, kind
+        assert np.isfinite(audio).all() and np.array_equal(audio, again), kind
+        assert 0.0 <= lead <= len(audio) / sound.SR + 1e-6, kind
+        assert abs(np.abs(audio).max() - sound.db(-10 + sound.TRIM[kind])) < 1e-6, kind
+
+
+def test_long_sounds_take_a_length_and_a_reverse_ends_on_its_hit():
+    from workprint import sound
+    for kind in ("rocket", "hum", "reverse"):
+        audio, lead = sound.make({"id": "s001", "kind": kind, "db": -12, "dur": 2.0})
+        assert abs(len(audio) / sound.SR - 2.0) < 0.01, kind
+    assert sound.make({"id": "s001", "kind": "reverse", "dur": 2.0})[1] == 2.0   # all of it comes before the cut
+    rocket, _ = sound.make({"id": "s001", "kind": "rocket", "dur": 4.0})
+    quarter = len(rocket) // 4
+    assert np.abs(rocket[:quarter]).mean() > 3 * np.abs(rocket[-quarter:]).mean()   # starts hard, dies away
+

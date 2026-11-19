@@ -133,6 +133,14 @@ were obtained: `transcribed+aligned`, `aligned`, `spread`, `imported`, `phrases-
   `{"kind": "rail", "label": "...", "timecode": true, "margin": 0.055}`. All accept `color`, `opacity`, `size`, `weight`.
 - Voice `treat`: `restore`, or `denoise` (0..1) inside a treatment dict.
 
+## Added in 0.6
+
+- Sound `kind`: also `screen-on`, `static`, `key`, `shutter`, `rocket`, `blast`, `beep`, `reverse`, `clang`, `glitch`,
+  `heartbeat`, `whip`, `hum`. `dur` applies to `rocket`, `hum` and `reverse` as well as the four moving sounds.
+- Font name `serif-italic` (captions: `set.font`; titles: `style.font`).
+- `made/` in the project holds clips written by `workprint screen make` and `workprint cutout`. They are ordinary
+  footage: a slot uses one as `{"src": "A012", "in": 0}`. Making one again under the same name replaces it.
+
 ## Added in 0.5
 
 - Transition `"t": {"type": "matte", "frames": 14, "style": "through"|"hold"}` (needs the matte tools).

@@ -36,7 +36,8 @@ from .project import write_json
 
 LISTS = ("sections", "cuts", "titles", "sounds", "voice", "captions", "hud")
 SOLO_FRAMES = 12  # slots at least this long are cached as their own render chunk
-SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick", "boom")
+SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick", "boom", "screen-on", "static", "key", "shutter",
+               "rocket", "blast", "beep", "reverse", "clang", "glitch", "heartbeat", "whip", "hum")
 FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "xray-scan", "xray-pulse", "xray-flicker", "mono", "shake")
 RAMPS = {"linear": 0.5, "inout": 0.5, "in": 1.0 / 3.0, "out": 2.0 / 3.0}  # mean of each easing curve
 INTERP = ("nearest", "blend", "flow")

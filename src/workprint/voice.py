@@ -475,3 +475,89 @@ def placed_phrases(project, cut: dict) -> list[list[float]]:
         out += [[round(item["at"] + max(s, a) - a, 3), round(item["at"] + min(e, b) - a, 3)]
                 for s, e in log.get("phrases", []) if e > a + 0.05 and s < b - 0.05]
     return sorted(out)
+
+
+# ---- checking excerpts as cut ---------------------------------------------------------------
+PAD = 0.4            # seconds of the recording looked at either side of an excerpt
+EDGE_IN, EDGE_OUT = 0.02, 0.05   # the mixer's fades on every excerpt
+
+
+def _sounding(db: np.ndarray) -> np.ndarray:
+    """Which 10 ms steps carry speech-level sound, judged against this stretch's own quiet and loud ends."""
+    floor, top = np.percentile(db, 10), np.percentile(db, 90)
+    if top - floor < 8.0:  # no contrast: all sound, or all silence
+        return np.full(len(db), top > -55.0)
+    return db > max(floor + 8.0, top - 24.0)
+
+
+def check_placed(project, cut: dict, recognise: bool = True) -> list[dict]:
+    """Each placed voice excerpt exactly as it will be cut: where its edges fall, and what a recogniser hears in it.
+
+    Word times from a log can be wrong, most often on live recordings with a crowd, and an excerpt set from them can
+    start or stop inside a word. This looks at the audio itself. ``lead`` and ``tail`` are the seconds of quiet between
+    the excerpt's edges and its first and last sound; ``starts_inside`` / ``ends_inside`` mean the cut lands in
+    continuous sound. With the speech model installed, ``heard`` is what the excerpt says, compared with the words
+    expected of it: its captions if it has any, otherwise the words logged for that stretch.
+    """
+    have = tools()
+    can_hear = recognise and have["recognizer"] and have["model"]
+    report = []
+    for item in cut.get("voice") or []:
+        if "src" not in item:
+            continue
+        entry, log = project.voice(item["src"]), project.voice_log(item["src"])
+        a = float(item.get("in", 0.0))
+        dur = float(item["dur"]) if item.get("dur") else float(entry["duration"]) - a
+        before = min(PAD, a)
+        x = ff.read_audio(project.path_of(entry), SR, 1, a - before, before + dur + PAD)[:, 0].astype(np.float64)
+        on = _sounding(envelope(x))
+        i0, i1 = int(round(before / HOP)), min(len(on), int(round((before + dur) / HOP)))
+        inside = np.flatnonzero(on[i0:i1])
+        row = {"id": item.get("id"), "src": item["src"], "at": round(float(item["at"]), 3), "in": round(a, 3), "dur": round(dur, 3), "problems": []}
+        if len(inside) == 0:
+            row.update(lead=None, tail=None, starts_inside=False, ends_inside=False)
+            row["problems"].append("no speech found in this excerpt")
+        else:
+            lead, tail = inside[0] * HOP, (i1 - i0 - 1 - inside[-1]) * HOP
+            starts_inside = bool(lead < 0.03 and on[max(0, i0 - 6):i0].any())
+            ends_inside = bool(tail < 0.03 and on[i1:i1 + 6].any())
+            row.update(lead=round(float(lead), 2), tail=round(float(tail), 2), starts_inside=starts_inside, ends_inside=ends_inside)
+            if starts_inside:
+                row["problems"].append("starts inside continuous sound (a word, or loud background): the first word may be cut into, or the one before it heard")
+            elif lead < 0.03:
+                row["problems"].append(f"starts {lead * 1000:.0f} ms before its first sound: the start of the first word may be clipped")
+            if ends_inside:
+                row["problems"].append("ends inside continuous sound (a word, or loud background): the last word may be cut off, or the next one begin")
+            elif tail < 0.08:
+                row["problems"].append(f"ends {tail * 1000:.0f} ms after its last sound: the end of the word, or its echo, may be cut")
+        said = [c for c in cut.get("captions") or [] if c.get("voice") == item.get("id")]
+        if said:
+            expected, source = " ".join(str(c.get("text", "")).replace("|", " ") for c in sorted(said, key=lambda c: c["at"])).split(), "captions"
+        else:
+            expected, source = [w["w"] for w in within(log, a, a + dur)], "log"
+        row.update(expected=" ".join(expected), expected_from=source, heard=None, missing=[], extra=[])
+        if can_hear:
+            part = x[int(before * SR):int((before + dur) * SR)].copy()
+            k_in, k_out = int(EDGE_IN * SR), int(EDGE_OUT * SR)
+            if len(part) > k_in + k_out:
+                part[:k_in] *= np.linspace(0.0, 1.0, k_in)
+                part[-k_out:] *= np.linspace(1.0, 0.0, k_out)
+            heard = [w["w"] for w in _recognize(part)]
+            row["heard"] = " ".join(heard)
+            if expected:
+                import difflib
+                want, got = [plain(w) for w in expected], [plain(w) for w in heard]
+                # A log's own word times can be a little out, so against a log the first and last word are not held to it.
+                slack = 1 if source == "log" else 0
+                for op, a0, a1, b0, b1 in difflib.SequenceMatcher(None, want, got, autojunk=False).get_opcodes():
+                    if op in ("delete", "replace"):
+                        row["missing"] += [expected[i] for i in range(a0, a1) if plain(expected[i]) and slack <= i < len(expected) - slack]
+                    if op in ("insert", "replace"):
+                        row["extra"] += [heard[i] for i in range(b0, b1) if plain(heard[i]) and slack <= i < len(heard) - slack]
+                if row["missing"] or row["extra"]:
+                    row["problems"].append("the words differ from the " + source + ": not heard "
+                                           + (", ".join(repr(w) for w in row["missing"]) or "nothing") + "; heard instead "
+                                           + (", ".join(repr(w) for w in row["extra"]) or "nothing"))
+        report.append(row)
+    return report
+

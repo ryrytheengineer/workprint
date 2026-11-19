@@ -13,7 +13,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from .look import hex_bgr
 
 FONT_DIR = Path(__file__).parent / "fonts"
-FONTS = {"display": "ArchivoBlack-Regular.ttf", "serif": "InstrumentSerif-Regular.ttf", "sans": "Inter-Variable.ttf"}
+FONTS = {"display": "ArchivoBlack-Regular.ttf", "serif": "InstrumentSerif-Regular.ttf", "serif-italic": "InstrumentSerif-Italic.ttf",
+         "sans": "Inter-Variable.ttf"}
 DEFAULT_STYLE = {"font": "display", "size": 0.11, "tracking": 0.0, "leading": 1.08, "color": "#f4f1ea", "pos": [0.5, 0.5],
                  "align": "center", "width": 0.84, "upper": False, "shadow": 0.0, "opacity": 1.0}
 SS = 2  # supersampling factor for edge quality

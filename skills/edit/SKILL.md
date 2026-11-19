@@ -92,7 +92,13 @@ A voice-over changes what the film is cut to. Do this after step 3, before you w
    not sense. Re-run after moving a voice. Fix a cue with `workprint set k004 text=...` or `dur=...`,
    move it with `set k004 set='{"pos":[0.5,0.3]}'`, `remove k004`, or add one by hand:
    `workprint new caption at=3 text="..." style=punch`.
-6. **Check.** `workprint check` reports cuts that land inside a word, captions that have drifted
+6. **Check the excerpts as cut.** `workprint voice check` looks at each placed excerpt in the recording itself:
+   how much quiet lies between its edges and its first and last sound, and whether it starts or ends inside
+   continuous sound. With the speech model it also prints what each excerpt says. Run it after every change to
+   a placement, and read `heard` against the words you meant to use: word times in a log can be most of a
+   second out on a live recording, and an excerpt set from them can hold the wrong words. Leave 80 ms or more
+   before the first word and run on into the silence after the last, so a word's end and its echo survive.
+7. **Check.** `workprint check` reports cuts that land inside a word, captions that have drifted
    off the voice, run outside the safe area, or sit on picture of similar brightness.
 
 ## Sound, effects and finishing
@@ -132,6 +138,25 @@ Use these when the brief or the user asks for them, not by default. Each is one 
 - **Words behind the subject.** `workprint set k004 set='{"behind": true}'` (titles: `style.behind`). Needs
   `workprint matte setup --yes` (ask first: 179 MB). It costs over a second a frame and guesses the subject, so
   use it on one or two strong shots with a clear subject, and look at the frame.
+- **A clip on a screen.** For a still with a television, monitor or phone in it: `workprint screen find still.jpg`
+  guesses the screen and draws its outline on a review image. Look at it. Correct `--corners "x,y x,y x,y x,y"`
+  (top-left, clockwise, in pixels of the still), `--radius` and `--bow` and run find again until the red line sits
+  on the edge of the glass. Then `workprint screen make still.jpg --corners ... --clip A003 --in 49.2 --dur 2.7`
+  writes the shot and adds it to the footage. `--look crt|flat|none`; `--push 1.0,1.7` is the camera's start and end
+  magnification; `--crop` shows part of the clip; `--neutral 0.8` removes colour the old picture cast on the casing.
+  Pair it with the sounds `screen-on`, `hum` and `static`. Use the user's still; a soft or small one goes soft as
+  the camera closes in, so keep `--push` modest on anything under about 2000 pixels wide.
+- **A cut-out card.** `workprint cutout --clip A009 --in 208.2 --dur 2.6 --small "Life can't just be about"
+  --big "SOLVING|PROBLEMS." --times 0.15,0.47,...` sets the subject of that clip on a plain card with the words
+  behind them. One time per word, small words first; or `--voice V03` to take them from a voice log (then check
+  them: see the voice check). `--place right|left|centre`, `--ignore x0,y0,x1,y1` to drop a logo from the matte.
+  Needs the matte tools. Use it for the one or two lines that carry the film, on a subject who stands clear of
+  their background, and look at a frame from the start, middle and end.
+- **More sounds.** Beside the hits and risers: `screen-on`, `static`, `key` (one per appearing word), `shutter`
+  (fast cuts), `rocket` and `hum` (beds; take `dur`), `blast`, `beep`, `reverse` (air rushing up to a cut; takes
+  `dur`), `clang`, `glitch`, `heartbeat` (bars where the music drops out), `whip` (cuts between cards). You have
+  not heard any of them: place them where the picture gives a reason, keep the small ones 10 dB or more under
+  the hits, and tell the user the sound design is unheard.
 - **A photograph as a shot.** `workprint still photo.jpg --dur 4 --move drift|push|parallax`, then `ingest`.
   `parallax` needs the matte tools; keep it for photos with one clear subject.
 

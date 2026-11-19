@@ -8,7 +8,7 @@ Workprint is for editors, filmmakers and creative directors who already know wha
 good cut is and want the distance between an idea and a watchable first cut to be
 minutes. It is not a template engine or a podcast clipper.
 
-By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.5.0.
+By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.6.0.
 
 ![Storyboard of the example film](examples/return/review/storyboard.jpg)
 
@@ -53,6 +53,12 @@ How it was made, shot by shot: [`examples/return/`](examples/return/).*
 - **Matches shots.** One slot's brightness, contrast and colour balance moved toward another's.
 - **Finishes for posting.** A loop version whose end dissolves back into its start, a cover
   image, and a smaller upload file with a bitrate ceiling.
+- **Puts a clip on a screen.** Give it a still with a television, monitor or phone in it and a
+  clip: the clip plays on that screen with the glass's shape and light, and the camera pushes in.
+- **Makes cut-out cards.** A person or object lifted out of a clip onto a plain card, with
+  type appearing behind them in time with a voice.
+- **Checks the voice as cut.** Reads back every voice excerpt exactly as it will be heard and
+  flags one that starts or stops inside a word.
 - **Closes with the brand.** An end card with a stacked title and a logo and wordmark from
   PNG or SVG files.
 - **Puts words behind the subject**, and turns a photograph into a shot with depth, using an
@@ -159,7 +165,7 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 
 | | |
 |---|---|
-| Test suite | 63 tests, all passing: 60 on synthetic media with exact expected answers, 3 that run only where an optional tool is installed (speech model, cut-out model, SVG converter) |
+| Test suite | 83 tests, all passing: 80 on synthetic media with exact expected answers, 3 that run only where an optional tool is installed (speech model, cut-out model, SVG converter) |
 | Example film | 11 clips (30 minutes of 1080p footage) to a checked 41 s film, end to end |
 | Shot logging | 146 shots found in 30 minutes of footage, 4 to 6 times faster than real time |
 | Render | 1080p at about 16 frames per second, 960x540 proxy at 23 to 30, 341 MB peak memory |
@@ -178,6 +184,10 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 | Moving type, colour match, loop, cover, upload file, travelling frame | Verified by measurement on synthetic clips only |
 | End card | Laid out and rendered with real SVG logos, inspected, passed by the checker |
 | Mattes | Inspected on three real frames and one rendered shot (a word behind a rocket); about 1.6 s per matted frame on 2 CPU cores |
+| Clip on a screen | Where the picture lands, which way round, the light it throws and the camera move are exact on synthetic stills. Run end to end on two real stills (a photograph of a 1970s television, a rendered image of a monitor) with real footage, and inspected on frames. The finder outlined the glass on two of three real images and the casing's inner edge on the third |
+| Cut-out cards | Layering and word timing verified with a stand-in for the model; one real card (a speaker on a dark stage) rendered with the real model and inspected. About 1.7 s per frame on 2 CPU cores |
+| New sounds | Each builds, is the same every time and takes its level; none has been heard |
+| Voice check | Edges verified on synthetic speech. On one real film with ten excerpts it read each back with the speech model; an earlier cut of that film had an excerpt holding the wrong words and one ending inside a word, both of which this check reports |
 | Captions and versions | Four caption styles and a 9:16 re-render of a 41 s trial film, inspected frame by frame and passed by the checker. No example film ships with them yet |
 
 ## Limitations
@@ -231,6 +241,14 @@ Read these before relying on it.
 - **Timeline export is experimental.** EDL and OpenTimelineIO files are written and the
   OTIO file reads back, but import into Premiere Pro and Resolve has not been verified.
   Grades, effects, titles and the mix do not travel.
+- **The screen finder is a guess.** It looks for an evenly lit four-sided area inside a casing. Always look
+  at the outline it draws and correct the corners. The still must be a still: a screen in a moving shot is
+  not tracked, and nothing may stand in front of the screen.
+- **A cut-out card is only as good as the matte**, and costs over a second a frame. A subject who merges
+  with the background leaves holes; words are timed by you or from a voice log, which can be wrong.
+- **The voice check reads level, and a recogniser.** Loud background (a crowd, music under the speech) can
+  look like a word at an excerpt's edge, and the recogniser mishears names and unusual words. It tells you
+  where to look; it does not decide.
 - **Designed sounds are synthesised.** They are tuned to the track's key and mixed
   conservatively, and they are not a sound library. Use your own files where it matters.
 - **No mattes, tracking or object removal yet.** See [ROADMAP.md](ROADMAP.md).

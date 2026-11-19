@@ -19,6 +19,10 @@ unless the README says so.
 
 ## After that
 
+5a. **Made frames, further.** 0.6 puts a clip on a screen in a still and makes cut-out cards.
+   Next: a screen in a moving shot (tracked corners), things passing in front of the screen,
+   photo stacks and picture tiles on a card, and a finder that is right more often.
+
 6. **Mattes, further.** 0.3 has text behind a subject from a salient-object model. Next:
    choosing and tracking a particular subject (SAM 2), cut-out holds across a cut,
    selective grades.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 (2026-11-19)
+
+- `workprint screen find|make`: play a clip on a screen in a still image (a television, a
+  monitor, a phone). The picture is bent to the screen's corners, rounded and bowed like
+  glass, given a tube or flat-panel look, lights what is round it, and the camera pushes in.
+- `workprint cutout`: a subject cut out of a clip on a plain card, with large and small
+  words appearing behind them at set times (needs the matte tools).
+- Thirteen more designed sounds: `screen-on`, `static`, `key`, `shutter`, `rocket`, `blast`,
+  `beep`, `reverse`, `clang`, `glitch`, `heartbeat`, `whip`, `hum`.
+- `workprint voice check`: looks at every placed voice excerpt as it will actually be cut.
+  Flags an excerpt that starts or ends inside sound or too close to it, and, with the
+  speech model, prints what the excerpt says and how that differs from its captions.
+- An italic cut of the bundled serif (`font: serif-italic`).
+
 ## 0.5.0 (2026-11-19)
 
 - Matte transition (`"t": {"type": "matte"}`): the next shot opens through, or behind,

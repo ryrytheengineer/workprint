@@ -278,6 +278,29 @@ def cmd_voice(args) -> int:
             elif analysis:
                 _voice_report(entry, analysis)
         return 0
+    if args.action == "check":  # every placed excerpt as it will actually be cut
+        report = voice.check_placed(project, project.cut())
+        if args.json:
+            print(json.dumps(report, indent=1))
+            return 1 if any(r["problems"] for r in report) else 0
+        if not report:
+            print("no voice is placed in this cut")
+            return 0
+        have = voice.tools()
+        for r in report:
+            edges = "no speech" if r["lead"] is None else f"{r['lead'] * 1000:.0f} ms of quiet before the first sound, {r['tail'] * 1000:.0f} ms after the last"
+            print(f"{'WARN' if r['problems'] else 'ok  '} {r['id']}  {r['src']} {r['in']:.2f}+{r['dur']:.2f}s at {r['at']:.2f}s: {edges}")
+            if r["heard"] is not None:
+                print(f"       heard:    \"{r['heard']}\"")
+                if r["missing"] or r["extra"]:
+                    print(f"       expected: \"{r['expected']}\" (from the {r['expected_from']})")
+            for text in r["problems"]:
+                print(f"       {text}")
+        if not (have["recognizer"] and have["model"]):
+            print("only the edges were checked: `workprint voice setup` adds the speech model that reads each excerpt back")
+        else:
+            print("a recogniser mishears names and unusual words: read `heard` yourself before changing anything")
+        return 1 if any(r["problems"] for r in report) else 0
     if args.action == "throw":  # echo one word of a placed voice, in time with the music
         cut = project.cut()
         item = next((v for v in cut.get("voice") or [] if v.get("id") == args.target), None)
@@ -519,6 +542,137 @@ def cmd_still(args) -> int:
     return 0
 
 
+def _floats(text: str | None, n: int | None = None, what: str = "value") -> list[float] | None:
+    if text is None:
+        return None
+    out = [float(v) for v in text.replace(";", ",").replace(" ", ",").split(",") if v != ""]
+    if n is not None and len(out) != n:
+        raise ValueError(f"{what} needs {n} numbers, got {len(out)}: {text!r}")
+    return out
+
+
+def _clip_frames(project, clip: str, start: float | None, dur: float, crop=None, max_width: int = 1280):
+    """Frames of part of a source, at the project's frame rate. ``clip`` is a source id (A003) or a shot id (A003-10)."""
+    from . import ff
+    shot = next((s for s in project.shots() if s["id"] == clip), None) if "-" in clip else None
+    src = project.source(shot["id"].split("-")[0] if shot else clip)
+    start = (shot["start"] if shot else 0.0) if start is None else start
+    k = min(1.0, max_width / src["width"])
+    size = (max(2, int(src["width"] * k) // 2 * 2), max(2, int(src["height"] * k) // 2 * 2))
+    fps = project.format["fps"]
+    with ff.FrameReader(project.path_of(src), start, fps, size, matrix=src.get("matrix", "bt709")) as reader:
+        for _ in range(max(1, int(round(dur * fps)))):
+            frame = reader.read()
+            if frame is None:
+                return
+            if crop:
+                h, w = frame.shape[:2]
+                frame = frame[int(crop[1] * h):int(crop[3] * h), int(crop[0] * w):int(crop[2] * w)]
+            yield frame
+
+
+def _made(project, name: str, frames, note: str) -> int:
+    """Write frames to the project's made/ folder and add the clip to the footage."""
+    from . import ff
+    from .project import signature
+    fmt = project.format
+    folder = project.root / "made"
+    folder.mkdir(exist_ok=True)
+    target = folder / f"{name}.mp4"
+    writer = ff.FrameWriter(target, (fmt["width"], fmt["height"]), fmt["fps"], 12, "medium")
+    count = 0
+    try:
+        for frame in frames:
+            writer.write(frame)
+            count += 1
+    finally:
+        writer.close()
+    if count == 0:
+        raise ValueError("no frames could be read from that part of the clip")
+    for entry in project.data.get("sources", []):   # made again under the same name: the old entry describes a different file
+        if Path(project.path_of(entry)) == target:
+            info = ff.probe(target)
+            entry.update(sig=signature(target), duration=round(info["duration"], 3))
+            project.save()
+            print(f"{target} ({count / fmt['fps']:.2f}s) replaces {entry['id']}. {note}")
+            return 0
+    added = project.add_footage([target])
+    project.save()
+    print(f"{target} ({count / fmt['fps']:.2f}s) added as {added[0]['id']}: use it in a slot as {{\"src\": \"{added[0]['id']}\", \"in\": 0}}. {note}")
+    return 0
+
+
+def cmd_screen(args) -> int:
+    """Footage playing on a screen in a still image."""
+    import cv2
+    import numpy as np
+    from . import screen
+    project = _project(args)
+    source = Path(args.image).expanduser()
+    image = cv2.imread(str(source), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError(f"cannot read {source} as an image")
+    corners = _floats(args.corners, 8, "--corners")
+    if args.action == "find":
+        if corners is None:
+            guess = screen.find(image)
+            if guess is None:
+                print("no screen found: give its four corners with --corners \"x,y x,y x,y x,y\" (top-left, top-right, bottom-right, bottom-left)")
+                return 1
+            corners = [v for point in guess["corners"] for v in point]
+            print(f"a {guess['kind']} four-sided area, {guess['fill'] * 100:.0f}% filled. This is a guess: look at the picture.")
+        review = project.root / "review"
+        review.mkdir(exist_ok=True)
+        out = review / f"screen-{source.stem}.jpg"
+        cv2.imwrite(str(out), screen.outline(image, np.float32(corners).reshape(4, 2), args.radius, args.bow), [cv2.IMWRITE_JPEG_QUALITY, 90])
+        print("--corners \"" + " ".join(f"{corners[i]:.0f},{corners[i + 1]:.0f}" for i in range(0, 8, 2)) + "\"")
+        print(f"outline drawn on {out}: the red line should sit on the edge of the glass. Adjust --corners, --radius and --bow and run find again until it does.")
+        return 0
+    if not args.clip:
+        raise ValueError("screen make needs --clip (a source such as A003, or a shot such as A003-10)")
+    if corners is None:
+        raise ValueError("screen make needs --corners: run `workprint screen find IMAGE`, look at the outline, then pass the corners")
+    fmt = project.format
+    push = _floats(args.push, 2, "--push")
+    crop = _floats(args.crop, 4, "--crop")
+    pictures = _clip_frames(project, args.clip, args.start, args.dur, crop)
+    frames = screen.frames(image, np.float32(corners).reshape(4, 2), pictures, max(2, int(round(args.dur * fmt["fps"]))), (fmt["width"], fmt["height"]),
+                           fmt["fps"], push=(push[0], push[1]), power_on=not args.no_power_on, radius=args.radius, bow=args.bow, look=args.look,
+                           spill=args.spill, neutral=args.neutral)
+    return _made(project, args.name or f"screen-{source.stem}-{args.clip}", frames,
+                 "Sounds that go with it: screen-on, hum, static.")
+
+
+def cmd_cutout(args) -> int:
+    """A subject cut out on a plain card, with type behind them."""
+    from . import cards, matte
+    if not all(matte.tools().values()):
+        raise ValueError("cut-out cards need the matte tools: run `workprint matte setup`")
+    project = _project(args)
+    fmt = project.format
+    big = [line.strip() for line in (args.big or "").split("|") if line.strip()]
+    words = cards.tokens(big, args.small)
+    if not words:
+        raise ValueError("cutout needs words: --big \"LINE ONE|LINE TWO\" and/or --small \"a few words\"")
+    times = _floats(args.times)
+    if times is None and args.voice:
+        vin = args.voice_in if args.voice_in is not None else (args.start or 0.0)
+        said = [w for w in project.voice_log(args.voice).get("words", []) if vin - 0.05 <= w["s"] < vin + args.dur]
+        if len(said) == len(words):
+            times = [max(0.0, round(w["s"] - vin, 3)) for w in said]
+        else:
+            first, last = (said[0]["s"] - vin, said[-1]["s"] - vin) if said else (0.1, args.dur * 0.7)
+            times = [round(max(0.0, first + (last - first) * i / max(1, len(words) - 1)), 3) for i in range(len(words))]
+            print(f"note: {args.voice} says {len(said)} words in that stretch and the card has {len(words)}, so the words are spread evenly; pass --times to set them")
+    ignore = _floats(args.ignore)
+    ignore = [ignore[i:i + 4] for i in range(0, len(ignore), 4)] if ignore else None
+    pictures = _clip_frames(project, args.clip, args.start, args.dur, _floats(args.crop, 4, "--crop"))
+    frames = cards.frames(pictures, max(2, int(round(args.dur * fmt["fps"]))), (fmt["width"], fmt["height"]), fmt["fps"], big, args.small, times,
+                          bg=args.bg, ink=args.ink, place=args.place, scale=args.scale, ignore=ignore)
+    return _made(project, args.name or f"cutout-{args.clip}-{int(round((args.start or 0) * 100))}", frames,
+                 "Sounds that go with it: whip on the cut in, key on each small word, impact on each large one.")
+
+
 def cmd_endcard(args) -> int:
     """Lay out a closing card: big stacked title, and under it a logo and a wordmark side by side."""
     from .manifest import next_id, timeline
@@ -757,8 +911,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = command("music", cmd_music, "analyse the music: tempo, bars, sections, drops")
     p.add_argument("--set", help="use this file as the project's music")
     p.add_argument("--json", action="store_true")
-    p = command("voice", cmd_voice, "read a voice-over (phrases, words, times) and place it: voice setup|add|show|place")
-    p.add_argument("action", choices=["setup", "add", "show", "place", "throw"])
+    p = command("voice", cmd_voice, "read a voice-over (phrases, words, times), place it, and check the excerpts as cut: voice setup|add|show|place|throw|check")
+    p.add_argument("action", choices=["setup", "add", "show", "place", "throw", "check"])
     p.add_argument("target", nargs="?", help="a file for add; a voice id (V01) for show and place")
     p.add_argument("--script", help="the words spoken, as text or @file: used as the spelling, and for timing if nothing better")
     p.add_argument("--words", help="word times you already have: Whisper-style JSON, SRT or VTT")
@@ -823,6 +977,38 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("image")
     p.add_argument("--dur", type=float, default=4.0)
     p.add_argument("--move", choices=["push", "drift", "parallax"], default="drift", help="parallax needs the matte tools")
+    p = command("screen", cmd_screen, "play a clip on a screen in a still image (a television, a monitor, a phone): screen find|make")
+    p.add_argument("action", choices=["find", "make"])
+    p.add_argument("image", help="the still with the screen in it")
+    p.add_argument("--corners", help="the screen's corners in pixels of the still: \"x,y x,y x,y x,y\" from top-left, clockwise")
+    p.add_argument("--radius", type=float, default=0.06, help="corner rounding, as a fraction of the screen's height")
+    p.add_argument("--bow", type=float, default=0.0, help="how far the glass's edges bulge outward (0.01 to 0.03 for a tube)")
+    p.add_argument("--look", choices=["crt", "flat", "none"], default="crt")
+    p.add_argument("--clip", help="make: the source (A003) or shot (A003-10) to play")
+    p.add_argument("--in", dest="start", type=float, help="make: where in the source to start, in seconds")
+    p.add_argument("--dur", type=float, default=3.0)
+    p.add_argument("--crop", help="make: the part of the clip to show, as fractions \"x0,y0,x1,y1\" (to lose a watermark)")
+    p.add_argument("--push", default="1.0,1.6", help="make: the camera's magnification at the start and the end")
+    p.add_argument("--no-power-on", action="store_true", help="make: start with the picture already on")
+    p.add_argument("--spill", type=float, default=0.6, help="make: how strongly the picture lights what is round the screen")
+    p.add_argument("--neutral", type=float, default=0.0, help="make: 0..1, remove the colour the old picture cast round the screen")
+    p.add_argument("--name", help="make: file name for the clip")
+    p = command("cutout", cmd_cutout, "a subject cut out on a plain card with type behind them (needs the matte tools)")
+    p.add_argument("--clip", required=True, help="the source (A003) or shot (A003-10) the subject is in")
+    p.add_argument("--in", dest="start", type=float)
+    p.add_argument("--dur", type=float, default=2.5)
+    p.add_argument("--big", help="the large words; | starts a new line")
+    p.add_argument("--small", help="one line of small italic words above them")
+    p.add_argument("--times", help="when each word appears, in seconds from the start: small words first, then large")
+    p.add_argument("--voice", help="take the times from this voice's words (V01) instead")
+    p.add_argument("--voice-in", type=float, help="the time in that voice that matches the start of the clip (default: --in)")
+    p.add_argument("--place", choices=["right", "left", "centre"], default="right", help="where the subject stands")
+    p.add_argument("--scale", type=float, default=1.15, help="the clip's height as a multiple of the card's")
+    p.add_argument("--bg", default="#fafafa")
+    p.add_argument("--ink", default="#111111")
+    p.add_argument("--crop", help="the part of the clip to use, as fractions \"x0,y0,x1,y1\"")
+    p.add_argument("--ignore", help="areas of the clip never to keep (a logo): \"x0,y0,x1,y1\" as fractions; ; between several")
+    p.add_argument("--name", help="file name for the clip")
     p = command("endcard", cmd_endcard, "lay out a closing card: stacked title, logo and wordmark")
     p.add_argument("--text", help="the title; | starts a new line")
     p.add_argument("--logo", help="a mark: PNG with transparency, or SVG")

@@ -68,6 +68,7 @@ flowchart LR
 | Editorial planning | `planner.py`, `profile.py` | First assembly from a structure on the beat grid; style profiles measured from reference films |
 | Edit representation | `manifest.py` | The cut format, validation, the chunk plan, diffs |
 | Rendering | `render.py`, `look.py`, `titles.py` | Frame compositor, grade and effects, typography |
+| Made frames | `screen.py`, `cards.py` | Shots built rather than found: a clip playing on a screen in a still; a subject cut out on a card with type behind. Written to `made/` and used as ordinary footage, so the compositor and its cache know nothing about them |
 | Sound | `mix.py`, `sound.py` | The mix and master; synthesised designed sounds |
 | Evaluation | `check.py` | Measures a rendered file against its cut, the music and delivery targets |
 | Revision | `revise.py` | Named edits to an existing cut, each recorded in history |

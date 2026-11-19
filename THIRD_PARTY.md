@@ -51,6 +51,7 @@ already installed; none is bundled or installed by Workprint.
 |---|---|---|---|---|---|
 | Archivo Black (Regular) | https://github.com/google/fonts/tree/main/ofl/archivoblack | SIL Open Font License 1.1 | No | `src/workprint/fonts/ArchivoBlack-Regular.ttf` | Licence text shipped as `ArchivoBlack-OFL.txt` |
 | Instrument Serif (Regular) | https://github.com/google/fonts/tree/main/ofl/instrumentserif | SIL Open Font License 1.1 | No | `src/workprint/fonts/InstrumentSerif-Regular.ttf` | `InstrumentSerif-OFL.txt` |
+| Instrument Serif (Italic) | https://github.com/Instrument/instrument-serif, taken from the `@fontsource/instrument-serif` 5.3.0 npm package | SIL Open Font License 1.1 | Container only: converted from WOFF2 to TrueType, outlines unchanged | `src/workprint/fonts/InstrumentSerif-Italic.ttf` | `InstrumentSerif-OFL.txt` |
 | Inter (variable) | https://github.com/google/fonts/tree/main/ofl/inter | SIL Open Font License 1.1 | No | `src/workprint/fonts/Inter-Variable.ttf` | `Inter-OFL.txt` |
 
 The OFL permits bundling and redistribution with software, forbids selling the fonts
