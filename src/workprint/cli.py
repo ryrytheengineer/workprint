@@ -75,6 +75,9 @@ def cmd_doctor(args) -> int:
         print("  optional opentimelineio not installed (.otio export unavailable; EDL export still works)")
     from .titles import svg_tool
     print(f"  {'ok      ' if svg_tool() else 'optional'} SVG logos: " + (svg_tool() or "no converter found (PNG logos still work; `brew install librsvg` adds SVG)"))
+    from .matte import tools as matte_tools
+    print(f"  {'ok      ' if all(matte_tools().values()) else 'optional'} matte tools" + ("" if all(matte_tools().values()) else
+          " not installed (words behind a subject, parallax stills). `workprint matte setup`"))
     from .voice import tools
     have = tools()
     if all(have.values()):
@@ -416,6 +419,55 @@ def cmd_render(args) -> int:
     return 0
 
 
+def cmd_matte(args) -> int:
+    from . import matte
+    have = matte.tools()
+    if all(have.values()):
+        print(f"matte tools are installed (model at {matte.model_path()})")
+        return 0
+    m = matte.MODEL
+    if not args.yes:
+        print("matte setup would install:")
+        if not have["runtime"]:
+            print(f"  Python package from PyPI: {matte.PACKAGES[0]}")
+        if not have["model"]:
+            print(f"  matte model {m['name']} ({m['bytes'] / 1e6:.0f} MB): {m['about']}")
+            print(f"    from {m['url']}")
+            print(f"    into {matte.model_path()}, used only if its SHA-256 matches the one pinned in Workprint")
+        print("it runs on this machine. Run `workprint matte setup --yes` to install.")
+        return 1
+    have = matte.setup()
+    print("installed: " + ", ".join(k for k, v in have.items() if v))
+    return 0 if all(have.values()) else 1
+
+
+def cmd_still(args) -> int:
+    """Turn a photograph into a shot and add it to the project's footage."""
+    import cv2
+    from . import ff, matte
+    project = _project(args)
+    source = Path(args.image).expanduser()
+    image = cv2.imread(str(source), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError(f"cannot read {source} as an image")
+    fmt = project.format
+    count = max(2, int(round(args.dur * fmt["fps"])))
+    folder = project.root / "stills"
+    folder.mkdir(exist_ok=True)
+    target = folder / f"{source.stem}-{args.move}.mp4"
+    writer = ff.FrameWriter(target, (fmt["width"], fmt["height"]), fmt["fps"], 14, "medium")
+    try:
+        for frame in matte.still_frames(image, fmt["width"], fmt["height"], count, args.move):
+            writer.write(frame)
+    finally:
+        writer.close()
+    added = project.add_footage([target])
+    project.save()
+    name = added[0]["id"] if added else "already in the project"
+    print(f"{target} ({args.dur:.1f}s, {args.move}) added as {name}. Run `workprint ingest` to log it.")
+    return 0
+
+
 def cmd_endcard(args) -> int:
     """Lay out a closing card: big stacked title, and under it a logo and a wordmark side by side."""
     from .manifest import next_id, timeline
@@ -695,6 +747,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--crf", type=int, help="x264 quality, lower is better and larger (default 20; 23 for --proxy)")
     p.add_argument("--jobs", type=int)
     p.add_argument("--json", action="store_true")
+    p = command("matte", cmd_matte, "optional subject mattes (words behind a subject, parallax stills): matte setup")
+    p.add_argument("action", choices=["setup"])
+    p.add_argument("--yes", action="store_true")
+    p = command("still", cmd_still, "turn a photograph into a moving shot and add it to the footage")
+    p.add_argument("image")
+    p.add_argument("--dur", type=float, default=4.0)
+    p.add_argument("--move", choices=["push", "drift", "parallax"], default="drift", help="parallax needs the matte tools")
     p = command("endcard", cmd_endcard, "lay out a closing card: stacked title, logo and wordmark")
     p.add_argument("--text", help="the title; | starts a new line")
     p.add_argument("--logo", help="a mark: PNG with transparency, or SVG")

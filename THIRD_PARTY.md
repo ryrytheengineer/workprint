@@ -33,6 +33,18 @@ Voice tools, installed only by `workprint voice setup --yes` and never bundled:
   used only if its SHA-256 matches the value pinned in `src/workprint/voice.py`. NVIDIA does
   not endorse Workprint.
 
+Matte tools, installed only by `workprint matte setup --yes` and never bundled:
+
+- **ONNX Runtime** (Microsoft), MIT.
+- **IS-Net general-use** salient-object weights from the DIS project (Xuebin Qin and
+  colleagues), in the ONNX file published in the rembg project's GitHub releases.
+  Downloaded from there and used only if its SHA-256 matches the value pinned in
+  `src/workprint/matte.py`. Check those projects for the weights' licence terms before
+  commercial use; Workprint does not redistribute them.
+
+SVG logos are drawn by whichever of librsvg, resvg, Inkscape, ImageMagick or cairosvg is
+already installed; none is bundled or installed by Workprint.
+
 ## Bundled
 
 | Asset | Source | Licence | Modified | Where | Required notice |

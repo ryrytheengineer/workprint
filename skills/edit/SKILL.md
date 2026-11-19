@@ -95,6 +95,34 @@ A voice-over changes what the film is cut to. Do this after step 3, before you w
 6. **Check.** `workprint check` reports cuts that land inside a word, captions that have drifted
    off the voice, run outside the safe area, or sit on picture of similar brightness.
 
+## Sound, effects and finishing
+
+Use these when the brief or the user asks for them, not by default. Each is one field or command.
+
+- **A voice that is hard to follow.** `workprint check` prints how many dB the voice sits over the music.
+  Under about 6 dB, try `workprint set audio carve_db=-8` (the music gives way only in the speech band),
+  `workprint set v001 treat=clear`, or more `gain_db`. `treat=hall` adds a large room for weight;
+  `treat=radio` narrows it like an old broadcast. You cannot hear the result: say so, and ask the user to listen.
+- **A word that should ring.** `workprint voice throw v001 --word will` repeats it into the gap after it, in time
+  with the music. It needs a gap: do not throw a word in the middle of a sentence.
+- **Cuts on the drums.** `workprint music` lists kick, snare and hat hits. A structure section with
+  `"on": "kick"` moves each grid cut onto the nearest one; `workprint roll c014 --on snare` does it for one cut.
+  On dense or orchestral music the kick list is unreliable: prefer the beat grid there.
+- **X-ray.** `fx` entries `xray`, `xray-scan` (a line crosses and leaves x-ray behind it; `width` makes it a
+  moving band, `dir` right/left/down/up), `xray-pulse` (hits as x-ray and settles) and `xray-flicker`. Options on
+  all: `tint`, `deep` (more contrast and glow), `positive` (for dark footage, which plain x-ray turns white).
+- **Flicker between two shots.** `workprint intercut c012 --shot A004-07 --every 2 --from 0.5`. Short runs
+  (1 to 3 frames) read as a flicker; use it at one moment, not across a section.
+- **Speed.** `speed` [from, to] with `ramp` (linear, in, out, inout) eases the change; `interp` `blend` or
+  `flow` makes slow motion smooth instead of stepped. Check the result on a filmstrip: both can smear.
+- **End card.** `workprint endcard --text "LINE ONE|LINE TWO" --logo mark.svg --wordmark word.svg [--tint]`.
+  Use the brand's own files, supplied by the user; do not redraw a logo.
+- **Words behind the subject.** `workprint set k004 set='{"behind": true}'` (titles: `style.behind`). Needs
+  `workprint matte setup --yes` (ask first: 179 MB). It costs over a second a frame and guesses the subject, so
+  use it on one or two strong shots with a clear subject, and look at the frame.
+- **A photograph as a shot.** `workprint still photo.jpg --dur 4 --move drift|push|parallax`, then `ingest`.
+  `parallax` needs the matte tools; keep it for photos with one clear subject.
+
 ## Other shapes
 
 For a 9:16, 4:5 or 1:1 version of a finished cut, run `workprint reframe --aspect 9:16`. It proposes

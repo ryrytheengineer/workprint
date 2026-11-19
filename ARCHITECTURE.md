@@ -202,6 +202,19 @@ renderer with a different frame size and a per-slot focus, into its own cache en
 `versions.py` proposes each focus from where detail and movement are; it does not
 recognise subjects, and says so.
 
+### Later additions keep older cuts' renders valid
+
+Every 0.2 and 0.3 feature enters a chunk's cache key only when a cut uses it. A cut made
+with 0.1 hashes to the same chunks today, which is checked against the example project.
+New behaviour that changes pixels is opt-in per slot (`interp`, `ramp`, `intercut`,
+`behind`) and never a changed default.
+
+### Sound decisions are measured because the editor cannot hear
+
+The mixer reports how far the voice sits above the music in the speech band while someone
+is speaking, and the checker warns below about 6 dB. Treatments are fixed, documented
+signal chains (`vox.py`), not learned models, so the same cut always sounds the same.
+
 ## Provenance
 
 | Subsystem | Status |

@@ -8,7 +8,7 @@ Workprint is for editors, filmmakers and creative directors who already know wha
 good cut is and want the distance between an idea and a watchable first cut to be
 minutes. It is not a template engine or a podcast clipper.
 
-By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.2.0.
+By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.3.0.
 
 ![Storyboard of the example film](examples/return/review/storyboard.jpg)
 
@@ -37,13 +37,25 @@ How it was made, shot by shot: [`examples/return/`](examples/return/).*
 - **Revises in place.** "Replace the third shot", "that cut is late", "hold the ending
   longer" become named operations on a readable cut file with full history. Only what
   changed is rendered again, and untouched picture is identical to the frame.
+- **Treats the voice.** Clarity, a hall or an old-radio treatment on a voice-over; the music
+  carved out only where speech needs the room; a word thrown as echoes in time with the
+  track; and a measured voice-over-music level, since the editor cannot hear.
+- **Cuts to the drums.** Finds kick, snare and hi-hat hits in the track and can land cuts
+  on them, not just on the beat grid.
+- **Has a few signature effects.** X-ray (plain, scanning, pulsing, flickering), a slot that
+  flickers back and forth to a second shot, eased speed ramps and smooth slow motion.
+- **Closes with the brand.** An end card with a stacked title and a logo and wordmark from
+  PNG or SVG files.
+- **Puts words behind the subject**, and turns a photograph into a shot with depth, using an
+  optional cut-out model.
 - **Makes the tall version.** Re-renders a finished cut as 9:16, 4:5 or 1:1, proposes where
   each shot sits in the new frame, and gives you a sheet to correct it from.
 - **Learns habits, not taste.** Point it at films you like and it measures shot lengths,
   cutting rate, how often cuts land on the beat, loudness. You correct the numbers; it uses them.
 
 It runs on your machine. No GPU, no API keys, no accounts, no editing application. The one
-large download is optional and explicit: a 482 MB speech model, fetched only by `workprint voice setup --yes`.
+large downloads are optional and explicit: a 482 MB speech model (`workprint voice setup --yes`) and a
+179 MB cut-out model (`workprint matte setup --yes`).
 
 ## Install
 
@@ -94,6 +106,13 @@ workprint -p film voice add ~/vo/line.wav            # phrases, words and when e
 workprint -p film voice place V01 --at 12.0          # the first word lands at 12.0 s
 workprint -p film captions --style split --punch genius --accent
 workprint -p film reframe --aspect 9:16              # then: render --aspect 9:16
+workprint -p film set v001 treat=hall && workprint -p film set audio carve_db=-8
+workprint -p film voice throw v001 --word will       # echo a word into the gap after it
+workprint -p film roll c014 --on kick                # land a cut on the nearest kick
+workprint -p film set c009 fx='[{"name":"xray-scan"}]'
+workprint -p film intercut c012 --shot A004-07 --every 2
+workprint -p film endcard --text "NEVER|THE SAME" --logo mark.svg --wordmark word.svg
+workprint -p film still photo.jpg --move parallax    # a photograph becomes footage
 workprint -p film render && workprint -p film check
 workprint -p film export --edl film.edl   # optional hand-off to an editing application
 ```
@@ -123,7 +142,7 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 
 | | |
 |---|---|
-| Test suite | 36 tests, all passing: 35 on synthetic media with exact expected answers, 1 that needs the optional speech model |
+| Test suite | 53 tests, all passing: 50 on synthetic media with exact expected answers, 3 that run only where an optional tool is installed (speech model, cut-out model, SVG converter) |
 | Example film | 11 clips (30 minutes of 1080p footage) to a checked 41 s film, end to end |
 | Shot logging | 146 shots found in 30 minutes of footage, 4 to 6 times faster than real time |
 | Render | 1080p at about 16 frames per second, 960x540 proxy at 23 to 30, 341 MB peak memory |
@@ -132,6 +151,12 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 | Plugin | Validates, installs and loads with Claude Code 2.1.328, from a local checkout and from GitHub (0.1.0) |
 | Voice | Five excerpts (5 to 8 s) of a 1940 radio address: the transcript matched the known text word for word; on three of them, all 8 phrase-opening words landed within 0.02 s of phrase starts measured separately from the signal level |
 | Voice setup | Through the plugin launcher into a clean environment: 102 s, 1.1 GB on disk including the base environment; a 5 s clip read in 3.4 s |
+| Older projects | After 0.2 and 0.3 the 0.1 example project still finds all 27 of its cached chunks: nothing re-renders |
+| Sound | Treatments, carve, throws and the voice-level meter are tested by measurement (band levels, echo timing, peak ceiling), not by ear |
+| Drum hits | Exact on a synthetic kit. On one real 120 BPM track: snare hits 100% and hat hits 80% on the 16th-note grid, kick hits 67% |
+| Effects | X-ray variants inspected on a real frame; flicker and smooth slow motion verified frame by frame on synthetic clips |
+| End card | Laid out and rendered with real SVG logos, inspected, passed by the checker |
+| Mattes | Inspected on three real frames and one rendered shot (a word behind a rocket); about 1.6 s per matted frame on 2 CPU cores |
 | Captions and versions | Four caption styles and a 9:16 re-render of a 41 s trial film, inspected frame by frame and passed by the checker. No example film ships with them yet |
 
 ## Limitations
@@ -151,6 +176,16 @@ Read these before relying on it.
   count, and word times inside a phrase are then estimates (it says so).
 - **Which words matter is the editor's call.** The "leaned on" list is level and length,
   not meaning. Punch words and their hits are placed where you say.
+- **Sound treatment has not been heard.** The voice treatments, carve and echo throws are
+  verified by measurement only. Whether the hall suits the voice is for your ears.
+- **Drum hits are a measurement, not stem separation.** Clear kits are found well; on dense
+  or orchestral mixes the kick list is inflated. Nothing here removes a vocal from a song.
+- **Smooth slow motion is approximate.** `blend` ghosts on fast movement; `flow` keeps edges
+  but can smear where things cross. Look before you keep it.
+- **Mattes find "the subject", not your subject.** The cut-out model guesses what the picture
+  is of, softens on dark or busy footage, does not track a chosen object, and is slow.
+  Parallax on stills fills what was behind the subject crudely; keep those moves small.
+- **Plain x-ray inverts the picture**, so dark footage turns white. Use `"positive": true` there.
 - **Reframing is a proposal** made from detail and movement, not from recognising a
   subject. It will be wrong on some shots; the review sheet is there to be read.
 - **The first assembly is a starting point.** On the example about two thirds of its
@@ -173,6 +208,8 @@ Read these before relying on it.
 | Python | 3.10 or newer |
 | FFmpeg | Any recent build with libx264 and AAC (tested with 6.1) |
 | Python packages | NumPy, SciPy, OpenCV (headless), Pillow; installed automatically into a private environment |
+| Matte tools (optional) | onnxruntime and a 179 MB cut-out model, installed only when you run `workprint matte setup --yes` |
+| SVG logos (optional) | librsvg, resvg, Inkscape, ImageMagick or cairosvg; PNG logos need nothing |
 | Voice tools (optional) | PocketSphinx, sherpa-onnx and a 482 MB speech model, installed only when you run `workprint voice setup --yes` |
 | Hardware | No GPU. The example rendered at 1080p on 2 CPU cores, peaking at 341 MB in the largest process |
 | Operating systems | Linux tested. macOS and Windows expected to work, not yet verified |

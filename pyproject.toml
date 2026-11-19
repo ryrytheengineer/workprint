@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "workprint"
-version = "0.2.0"
+version = "0.3.0"
 description = "A cinematic editing engine for Claude Code: footage, music and a brief in, a finished film and an editable cut out."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,6 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 timeline = ["opentimelineio>=0.17"]
 voice = ["pocketsphinx>=5.0", "sherpa-onnx>=1.10"]
+matte = ["onnxruntime>=1.16"]
 dev = ["pytest>=7"]
 
 [project.scripts]

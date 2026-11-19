@@ -211,7 +211,7 @@ def compile_cue(cue: dict, fps: float, width: int, height: int) -> list[dict]:
     def piece(block, a, b, lo, hi, first=True, last=True, dim=0.0):
         if b > a:
             pieces.append({"block": block, "f0": a, "f1": b, "lo": lo, "hi": hi, "fade_in": fade_in if first else 0,
-                           "fade_out": fade_out if last else 0, "dim": dim})
+                           "fade_out": fade_out if last else 0, "dim": dim, "behind": bool(style.get("behind"))})
 
     if reveal == "one":
         for k, word in enumerate(words):

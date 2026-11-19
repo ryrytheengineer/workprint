@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 (2026-11-19)
+
+- Voice treatment (`treat`: clear, hall, radio), a speech-band carve in the music
+  (`audio.carve_db`), echo throws (`workprint voice throw`), and a measured
+  voice-over-music level in `workprint check`.
+- Drum hits by kind (kick, snare, hat) in the music log; structure sections (`"on"`) and
+  `roll --on` can land cuts on them.
+- Effects: `xray-scan`, `xray-pulse`, `xray-flicker` and x-ray options (`tint`, `deep`,
+  `positive`); `workprint intercut` flickers a slot to a second shot; `ramp` eases speed
+  changes and `interp` (`blend`, `flow`) makes slow motion smooth.
+- Logos: titles can be images (PNG, SVG); `workprint endcard` lays out a closing card.
+- Optional mattes (`workprint matte setup`): captions and titles can sit behind the
+  subject; `workprint still` turns a photograph into a shot (push, drift, parallax).
+- Cuts made with 0.1 and 0.2 keep their cached chunks.
+
 ## 0.2.0 (2026-11-19)
 
 - Voice: `workprint voice add|show|place|setup`. Phrases and pauses are measured directly;

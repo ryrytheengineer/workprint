@@ -27,6 +27,7 @@ from .look import Finish, Grade, apply_fx, ease, hex_bgr, resolve_look
 from .manifest import chunk_plan, intercut_frames, source_span, speed_pair, timeline, transition_of, validate
 from .titles import Title, opacity_at, schedule
 from .titles import make as make_title
+from .matte import over as matte_over
 
 RENDER_REV = 1  # bump when a change to this module alters pixels: invalidates every cached chunk
 
@@ -67,6 +68,7 @@ class Context:
         self._finish = None
         self._titles = None
         self._captions = None
+        self._matte = None
 
     @property
     def finish(self) -> Finish:
@@ -85,6 +87,18 @@ class Context:
         if self._captions is None:
             self._captions = [p for cue in self.cut.get("captions") or [] for p in compile_cue(cue, self.fps, self.W, self.H)]
         return self._captions
+
+    @property
+    def matte(self):
+        if self._matte is None:
+            from .matte import Tracker
+            self._matte = Tracker()
+        return self._matte
+
+    def behind_at(self, frame: int) -> bool:
+        """Is any title or caption that sits behind the subject on screen at this frame?"""
+        return (any(p["behind"] and p["f0"] <= frame < p["f1"] for p in self.captions) or
+                any((item["spec"].get("style") or {}).get("behind") and item["f0"] <= frame < item["f1"] for item in self.title_plan))
 
     # ---- cache keys ----------------------------------------------------------------------------
     def _core(self, i: int) -> dict:
@@ -126,6 +140,9 @@ class Context:
                     (Path(item["spec"]["image"]) for item in self.title_plan if item["spec"].get("image") and item["f0"] < f1 and item["f1"] > f0)]
         if pictures:
             payload["pictures"] = pictures
+        if any(self.behind_at(f) for f in range(f0, f1)):
+            from .matte import MODEL
+            payload["matte"] = MODEL["name"]
         words = key_part(self.cut.get("captions"), f0, f1, self.fps)
         if words:  # only present when there are captions, so cuts without them keep their cached chunks
             payload["captions"] = words
@@ -357,14 +374,23 @@ def render_chunk(ctx: Context, index: int) -> dict:
                         frame = _toward(frame, after.get("color", "#000000"), (local - (n - fade_out) + 1) / (fade_out + 1))
                     frame = ctx.finish.apply(frame, frames)
                     absolute = slot["f0"] + local
-                    for item, title in ctx.titles:
-                        alpha = opacity_at(item, absolute)
-                        if alpha > 0:
-                            if not frame.flags.writeable:
-                                frame = frame.copy()
-                            title.draw(frame, alpha)
-                    if ctx.captions:
-                        frame = draw_captions(ctx.captions, frame, absolute)
+                    layers = [False]
+                    clean = None
+                    if ctx.behind_at(absolute):  # words behind the subject: draw them, then lay the subject back on top
+                        if local == 0:
+                            ctx.matte.reset()
+                        layers, clean = [True, False], frame.copy()
+                    for behind in layers:
+                        for item, title in ctx.titles:
+                            alpha = opacity_at(item, absolute)
+                            if alpha > 0 and bool((item["spec"].get("style") or {}).get("behind")) == behind:
+                                if not frame.flags.writeable:
+                                    frame = frame.copy()
+                                title.draw(frame, alpha)
+                        if ctx.captions:
+                            frame = draw_captions([p for p in ctx.captions if p["behind"] == behind], frame, absolute)
+                        if behind:
+                            frame = matte_over(clean, frame, ctx.matte.of(clean))
                     writer.write(frame)
                     frames += 1
                 underrun += player.underrun
@@ -401,6 +427,12 @@ def render(project, cut: dict, out: Path | None = None, scale: float = 1.0, crf:
     if errors:
         raise RenderError("the cut does not validate:\n  " + "\n  ".join(errors))
     started = time.time()
+    behind = any((c.get("set") or {}).get("behind") for c in cut.get("captions") or []) or \
+        any((t.get("style") or {}).get("behind") for t in cut.get("titles") or [])
+    if behind:
+        from .matte import tools as matte_tools
+        if not all(matte_tools().values()):
+            raise RenderError("this cut puts words behind a subject, which needs the matte tools: run `workprint matte setup`")
     job = plan(project, cut, scale, crf, preset, aspect)
     ctx, todo = job["ctx"], job["todo"]
     jobs = jobs or max(1, min(4, (os.cpu_count() or 2) // 2))

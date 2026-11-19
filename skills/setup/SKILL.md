@@ -43,3 +43,9 @@ voice-over and time its words; captions from a script or a word file work withou
 `workprint voice setup` lists what would be installed (two Python packages and a 482 MB speech
 model from GitHub, about 1.1 GB on disk in all with the base environment, nothing sent anywhere).
 Ask the user before running `workprint voice setup --yes`.
+
+## Matte tools and SVG logos (optional)
+
+`workprint doctor` reports both. The matte tools (`workprint matte setup`, a 179 MB model plus onnxruntime) are
+needed only for words behind a subject and parallax stills: ask the user before `--yes`. SVG logos need one of
+librsvg, resvg, Inkscape, ImageMagick or cairosvg; PNG logos with transparency need nothing.

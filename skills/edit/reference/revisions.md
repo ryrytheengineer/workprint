@@ -42,3 +42,19 @@ Only the changed chunks render; the rest of the picture is reused bit for bit.
 | `reframe --aspect 9:16 [--slots c003,c004] [--redo]` | Propose per-shot framing for a version |
 | `set c004 focus_9x16=[x,y]` | Correct one shot's framing |
 | `render --aspect 9:16` | Render the version |
+
+## Sound, effects and finishing (0.3)
+
+| Command | What it does |
+|---|---|
+| `set v001 treat=clear\|hall\|radio\|none` | Treat a placed voice |
+| `set audio carve_db=-8` | Make room for speech in the music's mid band only |
+| `voice throw v001 --word WORD[:n] [--beats 0.5] [--repeats 3]` | Echo a word in time with the music |
+| `roll c014 --on kick\|snare\|hat` | Move a cut onto the nearest drum hit |
+| `set c009 fx='[{"name":"xray-scan","deep":true}]'` | X-ray effects (also `xray`, `xray-pulse`, `xray-flicker`) |
+| `intercut c012 --shot ID [--every 2] [--from S] [--to S]` / `--off` | Flicker a slot to a second shot |
+| `set c005 speed=[2,0.5] ramp=inout interp=blend` | Eased ramp, smooth slow motion |
+| `endcard --text "A\|B" [--logo F] [--wordmark F] [--tint] [--dur 3]` | Closing card with title and logos |
+| `matte setup [--yes]` | Install the optional cut-out model |
+| `set k004 set='{"behind": true}'` | Put a caption behind the subject |
+| `still FILE [--dur 4] [--move drift\|push\|parallax]` | Turn a photograph into footage |

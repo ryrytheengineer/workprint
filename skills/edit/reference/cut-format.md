@@ -112,3 +112,16 @@ Per-version framing lives on the cut entries: `"focus_9x16": [0.62, 0.5]`.
 
 `phrases` ([start, end] in recording time), `words` ({w, s, e, stress}), `method` (how the word times
 were obtained: `transcribed+aligned`, `aligned`, `spread`, `imported`, `phrases-only`) and `approximate`.
+
+## Added in 0.3
+
+- Voice entries: `treat` (`clear`, `hall`, `radio`, `none`, or a dict such as `{"preset": "hall", "reverb": 0.3}`)
+  and `throws` (written by `workprint voice throw`). `audio.carve_db` (0 = off) lowers only the speech band of the music under a voice.
+- `log/music.json` has `drums`: `{"kick": [...], "snare": [...], "hat": [...]}` in music time. Structure sections accept `"on": "kick"`.
+- Cut entries: `ramp` (`linear`, `in`, `out`, `inout`), `interp` (`nearest`, `blend`, `flow`),
+  `intercut` (`{"src": "A004", "in": 12.0, "every": 2, "from": 0.5, "to": 1.5, "pattern": [2, 1]}`).
+- `fx` names `xray-scan`, `xray-pulse`, `xray-flicker`; x-ray options `tint`, `detail`, `deep`, `positive`;
+  scan options `dir`, `width`, `ease`; flicker options `every`, `pattern`.
+- Titles may carry `image` (PNG or SVG path, relative to the project) instead of `text`, with `style`
+  `width` or `height`, `pos`, `align`, `opacity`, `color` (redraw a one-colour logo in that colour).
+- `behind: true` in a caption's `set` or a title's `style` draws it behind the subject.
