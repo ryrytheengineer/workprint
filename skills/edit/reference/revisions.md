@@ -67,3 +67,8 @@ Only the changed chunks render; the rest of the picture is reused bit for bit.
 | `match c004 --to c001 [--amount 0.8]` / `--off` | Colour-match one slot to another (0.5) |
 | `reframe --aspect 9:16 --follow` | Let a version's frame travel during a shot (0.5) |
 | `loop [FILE] [--over 0.5]`, `cover [FILE] [--at T]`, `deliver [FILE] [--mbps 10]` | Loop version, cover image, upload file (0.5) |
+
+| `set c012 box=true` / `box='{"out":true}'` | Show a shot as a box on a plain field (0.7) |
+| `set c007 t='{"type":"matte","frames":6,"style":"fly-in","flash":3}'` | Fly the new subject in, then flash its background in (0.7; also `pin`, `lead`, `fly-out`, `spin-in`, `spin-out`) |
+| `set look letterbox_until=15.6` | Letterbox bars that open at that second (0.7) |
+| `set c014 fx='[{"name":"details","spots":[{"frame":2,"box":[0.55,0.31,0.45,0.19],"key":"dark"}]}]'` | Light single details for a frame each (0.7) |

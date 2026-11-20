@@ -8,7 +8,7 @@ Workprint is for editors, filmmakers and creative directors who already know wha
 good cut is and want the distance between an idea and a watchable first cut to be
 minutes. It is not a template engine or a podcast clipper.
 
-By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.6.0.
+By [Motion & Matter](https://ryanmchargue.com/creative), an experimental creative lab. Version 0.7.0.
 
 ![Storyboard of the example film](examples/return/review/storyboard.jpg)
 
@@ -183,6 +183,11 @@ Measured on one Linux machine with 2 CPU cores; details and method in
 | Noise reduction | Real speech with hiss and hum added 18 dB under it: the voice went from 19 to 39 dB above the noise floor and the transcript was unchanged. Not tested on a recording that was noisy to begin with |
 | HUD | Tracker held a subject moving 117 px across synthetic frames to within 5 px; reticle, rail and counter rendered on a real shot and inspected |
 | Matte transition | Rendered out of a real rocket shot with the real model and inspected over four frames; passed by the checker |
+| Matte styles (0.7) | `fly-in` with its flash used on a real cut in a finished spec film and inspected frame by frame. `pin`, `lead`, `spin-in`, `spin-out` and `fly-out` verified on synthetic frames only |
+| White box | Slam sizes measured from a finished spec edit; landing, settling, growing out and a run of boxes verified on synthetic frames |
+| Details flash | Used on a real shot in a finished spec film, every flash frame inspected; keys, seeds, outlines and validation verified on synthetic frames |
+| Bars that open | Used in a finished spec film (the bars open on the drop); verified on a synthetic frame |
+| Words behind a subject (0.7) | A word that ghosted through a dim, low-contrast subject in a real shot no longer does; inspected after the change |
 | Moving type, colour match, loop, cover, upload file, travelling frame | Verified by measurement on synthetic clips only |
 | End card | Laid out and rendered with real SVG logos, inspected, passed by the checker |
 | Mattes | Inspected on three real frames and one rendered shot (a word behind a rocket); about 1.6 s per matted frame on 2 CPU cores |

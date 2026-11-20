@@ -122,3 +122,107 @@ def test_a_version_frame_can_travel_during_a_shot(project):
     assert ff.probe(moving)["width"] == ff.probe(still)["width"] and diff(3.0) < 2.5  # the other shots are the same
     done = versions.propose(project, three_slot_cut(project), "9x16", 0.5625, follow=True)
     assert len(done) == 3
+
+
+def test_letterbox_until_opens_the_frame_at_that_second():
+    import numpy as np
+    from workprint.look import Finish
+    f = Finish({"letterbox": 2.39, "letterbox_until": 2.0}, 1920, 1080)
+    frame = np.full((1080, 1920, 3), 200, np.uint8)
+    assert f.apply(frame, 0)[0, 0, 0] == 200                 # the finish itself leaves the bars to the timeline
+    before, after = f.bars(frame.copy(), 1.5), f.bars(frame.copy(), 2.0)
+    assert before[0, 0, 0] == 0 and before[540, 960, 0] == 200 and before[-1, 0, 0] == 0
+    assert f.bar == 138 and before[137, 0, 0] == 0 and before[138, 0, 0] == 200
+    assert after[0, 0, 0] == 200
+
+
+def test_a_cut_out_flies_in_straight_and_lands_in_place():
+    back = np.full((90, 160, 3), 200, np.uint8)
+    subject = np.full((90, 160, 3), 20, np.uint8)
+    alpha = np.zeros((90, 160), np.float32)
+    alpha[30:60, 40:80] = 1.0
+    first = matte.revolve(subject, alpha, back, 0.0, 0.15, False, -1.0, steps=5, turn=0.0, rise=0.06, grow=0.12, shutter=0.45)
+    last = matte.revolve(subject, alpha, back, 0.85, 1.0, False, -1.0, steps=5, turn=0.0, rise=0.06, grow=0.12, shutter=0.45)
+    assert first[45, 60, 0] > 150                          # at the start it is still off to the left: its place shows the old shot
+    assert last[45, 60, 0] < 60 and last[10, 150, 0] > 150  # at the end it sits in its place, the rest still the old shot
+
+
+def test_a_fly_in_lands_then_its_background_flashes_in(project, left_half_subject):
+    cut = three_slot_cut(project)
+    cut["cuts"][1]["t"] = {"type": "matte", "frames": 8, "style": "fly-in", "spin": -1, "flash": 3}
+    assert manifest.transition_of(cut["cuts"][1])["flash"] == 3
+    assert manifest.validate(cut, project)[0] == []
+    out, plain = project.root / "fly.mp4", project.root / "plain.mp4"
+    stats = render(project, cut, out, 0.5, 20, "ultrafast", progress=QUIET)
+    render(project, three_slot_cut(project), plain, 0.5, 20, "ultrafast", progress=QUIET)
+    grab = lambda p, k: ff.grab_frame(p, 2.0 + (k + 0.5) / 24).astype(int)
+    assert stats["underrun_frames"] == 0
+    assert np.abs(grab(out, 1) - grab(plain, 1)).mean() > 2   # while it flies in, the old shot is still the background
+    assert grab(out, 8).mean() > grab(plain, 8).mean() + 40     # the background arrives with a flash
+    assert np.abs(grab(out, 14) - grab(plain, 14)).mean() < 2  # and then it is just the new shot
+
+
+def test_pin_holds_the_subject_whole_then_cuts():
+    old, new = np.full((90, 160, 3), 200, np.uint8), np.full((90, 160, 3), 20, np.uint8)
+    alpha = np.zeros((90, 160), np.float32)
+    alpha[20:70, 30:80] = 1.0
+    for p in (0.05, 0.5, 0.95):  # no fading at any point: the subject whole, the new shot round it
+        out = matte.wipe(old, new, alpha, p, "pin")
+        assert out[45, 55, 0] == 200 and out[5, 150, 0] == 20
+    assert matte.wipe(old, new, np.zeros((90, 160), np.float32), 0.5, "pin")[45, 55, 0] == 20  # no subject: a plain cut
+
+
+def _dark_centre_x(image):
+    ys, xs = np.nonzero(image[..., 0] < 110)
+    return xs.mean()
+
+
+def test_a_cut_out_spins_out_to_its_side_and_leaves():
+    back = np.full((90, 160, 3), 200, np.uint8)
+    subject = np.full((90, 160, 3), 20, np.uint8)
+    alpha = np.zeros((90, 160), np.float32)
+    alpha[30:60, 60:100] = 1.0
+    assert matte.revolve(subject, alpha, back, 0.0, 0.1, True, 1.0)[45, 80, 0] < 60  # it starts in its place
+    right = matte.revolve(subject, alpha, back, 0.4, 0.5, True, 1.0)
+    left = matte.revolve(subject, alpha, back, 0.4, 0.5, True, -1.0)
+    assert _dark_centre_x(right) > 80 + 15 and _dark_centre_x(left) < 80 - 15  # spin picks the side it flies to
+    gone = matte.revolve(subject, alpha, back, 0.9, 1.0, True, 1.0)
+    assert np.abs(gone.astype(int) - 200).max() <= 1  # and by the end it has left the frame
+
+
+def test_a_cut_out_spins_in_from_off_the_frame_and_lands():
+    back = np.full((90, 160, 3), 200, np.uint8)
+    subject = np.full((90, 160, 3), 20, np.uint8)
+    alpha = np.zeros((90, 160), np.float32)
+    alpha[30:60, 60:100] = 1.0
+    early = matte.revolve(subject, alpha, back, 0.0, 0.1, False, 1.0)
+    assert np.abs(early.astype(int) - 200).max() <= 1  # it starts off the frame
+    landed = matte.revolve(subject, alpha, back, 0.9, 1.0, False, 1.0)
+    assert landed[45, 80, 0] < 60 and landed[10, 10, 0] > 150  # and lands in its place
+
+
+def test_a_cut_out_flies_out_straight_without_turning():
+    back = np.full((90, 160, 3), 200, np.uint8)
+    subject = np.full((90, 160, 3), 20, np.uint8)
+    alpha = np.zeros((90, 160), np.float32)
+    alpha[40:50, 40:120] = 1.0  # a long flat bar
+    mid = matte.revolve(subject, alpha, back, 0.4, 0.5, True, 1.0, steps=5, turn=0.0, rise=0.06, grow=0.12, shutter=0.45)
+    ys, xs = np.nonzero(mid[..., 0] < 110)
+    assert xs.mean() > 80 + 20  # it has moved off toward its side
+    assert ys.max() - ys.min() < 16  # and is still a flat bar: it did not turn
+
+
+def test_lead_brings_the_new_subject_first_then_its_background(project, left_half_subject):
+    cut = three_slot_cut(project)
+    cut["cuts"][1]["t"] = {"type": "matte", "frames": 6, "style": "lead"}
+    assert manifest.validate(cut, project)[0] == []
+    out, plain = project.root / "lead.mp4", project.root / "plain.mp4"
+    stats = render(project, cut, out, 0.5, 20, "ultrafast", progress=QUIET)
+    render(project, three_slot_cut(project), plain, 0.5, 20, "ultrafast", progress=QUIET)
+    grab = lambda p, k: ff.grab_frame(p, 2.0 + (k + 0.5) / 24).astype(int)
+    a, b = grab(out, 2), grab(plain, 2)
+    half = a.shape[1] // 2
+    assert stats["underrun_frames"] == 0
+    assert np.abs(a[:, : half - 4] - b[:, : half - 4]).mean() < 3  # the incoming subject is already there
+    assert np.abs(a[:, half + 4:] - b[:, half + 4:]).mean() > 2  # over what is left of the old shot
+    assert np.abs(grab(out, 12) - grab(plain, 12)).mean() < 2  # then it is just the new shot

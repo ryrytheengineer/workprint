@@ -128,8 +128,18 @@ Use these when the brief or the user asks for them, not by default. Each is one 
 - **An old or noisy recording.** `workprint set v001 treat=restore` reduces steady hiss and hum. It needs pauses in
   the recording to learn the noise from. You cannot hear whether it thinned the voice: ask the user to listen.
 - **Through the subject.** `workprint set c007 t='{"type":"matte","frames":14}'` opens the new shot from inside
-  the outgoing shot's subject; `"style":"hold"` brings it in behind a subject that lingers. Needs the matte tools.
-  Use it once or twice, out of a shot with one clear subject, and look at three frames of it.
+  the outgoing shot's subject; `"style":"hold"` brings it in behind a subject that lingers. `"pin"` holds the subject
+  whole over the new shot, then cuts; `"lead"` brings the new subject in first, over the old shot. `"fly-in"` and
+  `"fly-out"` fly a cut-out straight in or off, `"spin-in"` and `"spin-out"` turn it as it goes (`"spin": -1` for the
+  other side), and `"flash": 3` brings the new background in with a flash. Needs the matte tools. Use it once or
+  twice, out of a shot with one clear subject, and look at three frames of it.
+- **The white box.** `workprint set c012 box=true` shows a shot as a box on a plain field. It slams in unless the
+  shot before was boxed; `box='{"out":true}'` grows it out. Use it for a run of a few shots, not a whole section.
+- **Details, one frame each.** `fx` `details` lights single details of a shot for a frame: `spots` with `frame`, a
+  `box` round the detail (fractions of the frame, read off a frame you have looked at), `mode` (`fill`, `invert`,
+  `outline`) and `key` or `seed` to pick the piece. The key finds tones, not objects: look at every flash frame.
+- **Bars that open.** `workprint set look letterbox_until=15.6` holds the letterbox until that second (a drop),
+  then opens the frame.
 - **Type that moves.** `workprint captions ... --enter pop|grow|slide|rise|drop`, or `set k004 set='{"in":"pop"}'`.
 - **Matching shots.** `workprint match c004 --to c001` when footage from different sources should sit together
   (archive beside modern, two cameras). Compare frames afterwards; lower `--amount` if it overshoots.

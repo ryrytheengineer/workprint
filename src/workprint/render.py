@@ -29,9 +29,13 @@ from .titles import Title, opacity_at, schedule
 from .titles import make as make_title
 from .matte import over as matte_over
 from .matte import wipe as matte_wipe
+from .matte import solid_alpha
+from .matte import revolve as matte_revolve
 from .hud import Hud
 
 RENDER_REV = 1  # bump when a change to this module alters pixels: invalidates every cached chunk
+BEHIND_REV = 3  # bump when the words-behind compositing changes
+BEHIND_MATTE = (0.25, 0.2)  # words behind a subject: the matte made firm from this level over this span, so nothing ghosts through
 
 
 class RenderError(RuntimeError):
@@ -107,6 +111,8 @@ class Context:
     def _core(self, i: int) -> dict:
         entry = self.slots[i]["cut"]
         spec = {"n": self.slots[i]["f1"] - self.slots[i]["f0"], "grade": entry.get("grade"), "fx": entry.get("fx")}
+        if entry.get("box"):
+            spec["box"] = [entry["box"], box_slams(self.slots, i)]
         if "card" in entry:
             spec["card"] = entry["card"]
         else:
@@ -152,6 +158,8 @@ class Context:
                 transition_of(s["cut"])["type"] == "matte" and s["f0"] < f1 and s["f1"] > f0 for s in self.slots):
             from .matte import MODEL
             payload["matte"] = MODEL["name"]
+        if any(self.behind_at(f) for f in range(f0, f1)):
+            payload["behind"] = [BEHIND_REV, *BEHIND_MATTE]
         words = key_part(self.cut.get("captions"), f0, f1, self.fps)
         if words:  # only present when there are captions, so cuts without them keep their cached chunks
             payload["captions"] = words
@@ -374,6 +382,49 @@ class SlotPlayer:
             self.other.close()
 
 
+BOX_SLAM = (1.165, 1.049, 1.006)  # measured from The Arsenal: the box lands from 116% in three frames
+BOX_OUT = (1.012, 1.095)          # and, when asked, grows out over the last two
+
+
+def box_slams(slots: list, i: int) -> bool:
+    """A box slams in when the shot before it was not boxed; a run of boxed shots keeps one still box."""
+    return i == 0 or not slots[i - 1]["cut"].get("box")
+
+
+def boxed(frame: np.ndarray, spec, local: int, n: int, slam: bool = True) -> np.ndarray:
+    """The frame shown as a box on a plain field: the shot is cover-cropped to the box's shape, around ``focus``.
+
+    ``spec`` is True or a dict: ``bg`` (default #F4F4F1), ``w`` and ``h`` as fractions of the frame (default the
+    Arsenal's 1092x838 on 1920x1080), ``pos`` (centre, fractions), ``focus`` (where to crop, fractions of the shot),
+    ``slam`` (default true), ``out`` (grow out over the last two frames, default false).
+    """
+    spec = spec if isinstance(spec, dict) else {}
+    H, W = frame.shape[:2]
+    bw, bh = spec.get("w", 1092 / 1920) * W, spec.get("h", 838 / 1080) * H
+    px, py = spec.get("pos", [0.5, 532 / 1080])
+    scale = 1.0
+    if slam and spec.get("slam", True) and local < len(BOX_SLAM):
+        scale = BOX_SLAM[local]
+    if spec.get("out") and local >= n - len(BOX_OUT):
+        scale = BOX_OUT[local - (n - len(BOX_OUT))]
+    w, h = max(2, int(round(bw * scale))), max(2, int(round(bh * scale)))
+    aspect = bw / bh
+    cw, ch = (H * aspect, H) if W / H > aspect else (W, W / aspect)
+    fx, fy = spec.get("focus", [0.5, 0.5])
+    x0 = int(round(min(max(fx * W - cw / 2, 0), W - cw)))
+    y0 = int(round(min(max(fy * H - ch / 2, 0), H - ch)))
+    inner = cv2.resize(frame[y0:y0 + int(round(ch)), x0:x0 + int(round(cw))], (w, h),
+                       interpolation=cv2.INTER_AREA if w < cw else cv2.INTER_CUBIC)
+    canvas = np.empty_like(frame)
+    canvas[:] = hex_bgr(spec.get("bg", "#F4F4F1"))
+    left, top = int(round(px * W - w / 2)), int(round(py * H - h / 2))
+    sx0, sy0 = max(0, -left), max(0, -top)
+    dx0, dy0 = max(0, left), max(0, top)
+    dx1, dy1 = min(W, left + w), min(H, top + h)
+    canvas[dy0:dy1, dx0:dx1] = inner[sy0:sy0 + dy1 - dy0, sx0:sx0 + dx1 - dx0]
+    return canvas
+
+
 def _toward(frame: np.ndarray, color: str, amount: float) -> np.ndarray:
     solid = np.empty_like(frame)
     solid[:] = hex_bgr(color)
@@ -402,7 +453,21 @@ def render_chunk(ctx: Context, index: int) -> dict:
                         if local == 0:  # the new shot arrives through, or behind, the outgoing shot's subject
                             ctx.matte.reset()
                         leaving = outgoing.next()
-                        frame = matte_wipe(leaving, frame, ctx.matte.of(leaving), (local + 1) / (trans["frames"] + 1), trans.get("style", "through"))
+                        n_t = trans["frames"]
+                        if trans.get("style") == "fly-out":  # the outgoing subject flies straight off along its heading
+                            frame = matte_revolve(leaving, ctx.matte.of(leaving), frame, local / n_t, (local + 1) / n_t, True, trans.get("spin", 1.0),
+                                                  steps=5, turn=0.0, rise=0.06, grow=0.12, shutter=0.45)
+                        elif trans.get("style") == "spin-out":  # the outgoing subject spins out of the frame over the new shot
+                            frame = matte_revolve(leaving, ctx.matte.of(leaving), frame, local / n_t, (local + 1) / n_t, True, trans.get("spin", 1.0))
+                        elif trans.get("style") == "fly-in":  # the incoming subject flies straight in along its heading and lands; then its background
+                            frame = matte_revolve(frame, ctx.matte.of(frame, lift=True), leaving, local / n_t, (local + 1) / n_t, False,
+                                                  trans.get("spin", 1.0), steps=5, turn=0.0, rise=0.06, grow=0.12, shutter=0.45)
+                        elif trans.get("style") == "spin-in":  # the incoming subject spins in over the old shot and lands; then its background
+                            frame = matte_revolve(frame, ctx.matte.of(frame), leaving, local / n_t, (local + 1) / n_t, False, trans.get("spin", 1.0))
+                        elif trans.get("style") == "lead":  # the incoming subject first, over the old shot; then its own background on a cut
+                            frame = matte_over(frame, leaving, solid_alpha(ctx.matte.of(frame)))
+                        else:
+                            frame = matte_wipe(leaving, frame, ctx.matte.of(leaving), (local + 1) / (trans["frames"] + 1), trans.get("style", "through"))
                     elif outgoing is not None and local < trans["frames"]:
                         frame = cv2.addWeighted(outgoing.next(), 1.0 - (local + 1) / (trans["frames"] + 1), frame,
                                                 (local + 1) / (trans["frames"] + 1), 0)
@@ -412,16 +477,23 @@ def render_chunk(ctx: Context, index: int) -> dict:
                             frame = _toward(frame, trans.get("color", "#000000"), 1.0 - (local + 1) / (fade_in + 1))
                     elif trans["type"] == "flash" and local < trans["frames"]:
                         frame = _toward(frame, trans.get("color", "#ffffff"), 0.9 * (1.0 - local / trans["frames"]) ** 1.5)
+                    if trans["type"] == "matte" and trans.get("flash") and trans["frames"] <= local < trans["frames"] + trans["flash"]:
+                        k = local - trans["frames"]  # the new shot's own background arrives with a flash
+                        frame = _toward(frame, trans.get("color", "#ffffff"), 0.9 * (1.0 - k / trans["flash"]) ** 1.5)
                     if fade_out and local >= n - fade_out:
                         frame = _toward(frame, after.get("color", "#000000"), (local - (n - fade_out) + 1) / (fade_out + 1))
                     frame = ctx.finish.apply(frame, frames)
+                    if slot["cut"].get("box"):  # the shot as a box on a plain field, after the finish so the field stays clean
+                        frame = boxed(frame, slot["cut"]["box"], local, n, box_slams(ctx.slots, i))
+                    if ctx.finish.until:  # bars that hold until a moment, then open
+                        frame = ctx.finish.bars(frame, (slot["f0"] + local) / ctx.fps)
                     absolute = slot["f0"] + local
                     if ctx.hud.items:
                         frame = ctx.hud.draw(frame, absolute)
                     layers = [False]
                     clean = None
                     if ctx.behind_at(absolute):  # words behind the subject: draw them, then lay the subject back on top
-                        if local == 0:
+                        if local == 0 or not ctx.behind_at(absolute - 1):  # a fresh matte: never steadied against a transition's
                             ctx.matte.reset()
                         layers, clean = [True, False], frame.copy()
                     for behind in layers:
@@ -434,7 +506,7 @@ def render_chunk(ctx: Context, index: int) -> dict:
                         if ctx.captions:
                             frame = draw_captions([p for p in ctx.captions if p["behind"] == behind], frame, absolute)
                         if behind:
-                            frame = matte_over(clean, frame, ctx.matte.of(clean))
+                            frame = matte_over(clean, frame, solid_alpha(ctx.matte.of(clean, lift=True), *BEHIND_MATTE))
                     writer.write(frame)
                     frames += 1
                 underrun += player.underrun

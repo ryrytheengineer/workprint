@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.0 (2026-11-20)
+
+- The white box (`"box": true` on a slot): the shot shown as a box on a plain field. It slams
+  in from 116% over three frames, measured from a finished spec edit, unless the shot before
+  it was boxed too; `{"out": true}` grows it out over the last two frames. Options: `bg`, `w`,
+  `h`, `pos`, `focus`, `slam`.
+- More matte transitions: `pin` (the outgoing subject holds whole over the new shot, then goes
+  on a cut), `lead` (the incoming subject arrives first, over the old shot), `fly-in` and
+  `fly-out` (a cut-out flies straight in and lands, or flies off along its heading), and
+  `spin-in` and `spin-out` (the same, turning). `spin` (+1 or -1) sets the side; `flash`
+  (frames) brings the new shot's own background in with a flash.
+- Bars that open: `look.letterbox_until` (seconds) holds the letterbox until that moment,
+  then the frame opens.
+- A `details` effect: single details of a shot lit for a frame each, filled flat, turned
+  negative or traced in lines. Each detail is found by a quick luma-key roto inside a box you
+  give, so it needs no model. `validate` checks every spot.
+- Words behind a subject: the subject's matte is made firm and read on a brightened copy of
+  dim frames, so a word no longer ghosts through a dark, low-contrast subject, and the matte
+  starts fresh at each stretch of words. Chunks with words behind a subject re-render once.
+
 ## 0.6.0 (2026-11-19)
 
 - `workprint screen find|make`: play a clip on a screen in a still image (a television, a

@@ -112,7 +112,7 @@ extensible in plain Python.
 The speed is recovered by never rendering the same thing twice. The film is rendered
 as independent **chunks**; each is stored under a hash of everything that affects its
 pixels (source fingerprint, in-point, speed, move, grade, effects, transitions,
-overlapping titles, the look, output size, renderer revision). The finished film is
+overlapping titles, words set behind a subject, the look, output size, renderer revision). The finished film is
 the chunks joined without re-encoding. A revision re-renders only chunks whose hash
 changed, and untouched picture is bit-identical between versions, which the test
 suite verifies frame by frame.

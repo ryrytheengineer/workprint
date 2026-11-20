@@ -119,7 +119,7 @@ def test_screen_commands_find_then_make(project, capsys):
 @pytest.fixture()
 def left_half_subject(monkeypatch):
     """Stand in for the model: the subject is the left half of the frame."""
-    def fake(frame):
+    def fake(frame, lift=False):
         alpha = np.zeros(frame.shape[:2], np.float32)
         alpha[:, :frame.shape[1] // 2] = 1.0
         return alpha

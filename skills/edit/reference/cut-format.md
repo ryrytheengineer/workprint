@@ -147,3 +147,20 @@ were obtained: `transcribed+aligned`, `aligned`, `spread`, `imported`, `phrases-
 - Caption `set`: `"in"` (`pop`, `grow`, `slide`, `rise`, `drop`) and `"in_dur"` (seconds, default 0.14).
 - Cut entries: `match` (`{"from": [[mean], [spread]], "to": [...], "amount": 0.8, "ref": "c001"}`, written by `workprint match`)
   and `focus_9x16_to` (where a version's frame ends up; with `focus_9x16` as where it starts).
+
+## Added in 0.7
+
+- Cut entries: `box`, `true` or `{"bg": "#F4F4F1", "w": 0.569, "h": 0.776, "pos": [0.5, 0.493], "focus": [0.5, 0.5],
+  "slam": true, "out": false}`: the shot as a box on a plain field. `w` and `h` are fractions of the frame (the default is
+  1092x838 on 1920x1080), `pos` is the box's centre, `focus` is what the crop keeps. It slams in unless the slot before
+  was boxed; `out` grows it out over the last two frames.
+- Matte transition styles, besides `through` and `hold`: `pin`, `lead`, `fly-in`, `fly-out`, `spin-in`, `spin-out`.
+  `"spin": 1` or `-1` picks the side a cut-out flies to or from; `"flash": 3` is frames of flash (`color`, default
+  white) as the new shot's own background arrives.
+- Look: `letterbox_until` (seconds): the bars hold until then, and the frame opens. 0, the default, keeps them throughout.
+- `fx` `details`: `{"name": "details", "color": "#f4f4f1", "spots": [{"frame": 2, "frames": 1, "box": [x, y, w, h],
+  "mode": "fill"|"invert"|"outline", "key": "auto"|"dark"|"light"|"none", "level": 0.12, "seed": [x, y], "inside": false}]}`.
+  `frame` counts from the slot's first frame; `box` and `seed` are fractions of the frame; `key` keeps the darker or lighter
+  side of the box (`auto`, the default, takes the smaller side; `invert` defaults to `none`, the whole box); `level`
+  (0..1) replaces the automatic threshold; `seed` keeps only the piece under that point; `inside` drops pieces that
+  touch the box's edge.

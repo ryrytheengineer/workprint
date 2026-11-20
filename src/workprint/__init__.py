@@ -1,2 +1,2 @@
 """Workprint: a cinematic editing engine for Claude Code, by Motion & Matter."""
-__version__ = "0.6.0"
+__version__ = "0.7.0"

@@ -23,9 +23,9 @@ unless the README says so.
    Next: a screen in a moving shot (tracked corners), things passing in front of the screen,
    photo stacks and picture tiles on a card, and a finder that is right more often.
 
-6. **Mattes, further.** 0.3 has text behind a subject from a salient-object model. Next:
-   choosing and tracking a particular subject (SAM 2), cut-out holds across a cut,
-   selective grades.
+6. **Mattes, further.** 0.3 has text behind a subject from a salient-object model; 0.7
+   holds a cut-out across a cut (`pin`, `lead`) and flies or spins one in and out. Next:
+   choosing and tracking a particular subject (SAM 2), selective grades.
 7. **Match-cut search.** Rank pairs of shots by similarity of shape, position and
    motion so the planner can propose match cuts instead of leaving them to luck.
 8. **Better reframing.** 0.2 proposes a fixed frame per shot from detail and movement.

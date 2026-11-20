@@ -38,7 +38,7 @@ LISTS = ("sections", "cuts", "titles", "sounds", "voice", "captions", "hud")
 SOLO_FRAMES = 12  # slots at least this long are cached as their own render chunk
 SOUND_KINDS = ("impact", "sub", "riser", "downlifter", "whoosh", "swell", "tick", "boom", "screen-on", "static", "key", "shutter",
                "rocket", "blast", "beep", "reverse", "clang", "glitch", "heartbeat", "whip", "hum")
-FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "xray-scan", "xray-pulse", "xray-flicker", "mono", "shake")
+FX_NAMES = ("punch", "rgbsplit", "invert", "xray", "xray-scan", "xray-pulse", "xray-flicker", "mono", "shake", "details")
 RAMPS = {"linear": 0.5, "inout": 0.5, "in": 1.0 / 3.0, "out": 2.0 / 3.0}  # mean of each easing curve
 INTERP = ("nearest", "blend", "flow")
 TRANSITIONS = ("cut", "dissolve", "dip", "flash", "matte")
@@ -145,8 +145,12 @@ def transition_of(entry: dict) -> dict:
     out = {"type": t.get("type", "cut"), "frames": int(t.get("frames", 0 if t.get("type", "cut") == "cut" else 8))}
     if "color" in t:
         out["color"] = t["color"]
-    if "style" in t:  # matte: through (default) or hold
+    if "style" in t:  # matte: through (default), hold, pin, lead, spin-out, spin-in, fly-out or fly-in
         out["style"] = t["style"]
+    if "flash" in t:  # matte: frames of flash as the new shot's own background arrives after the subject
+        out["flash"] = int(t["flash"])
+    if "spin" in t:  # spin-out / spin-in: +1 or -1, which way it turns and which side it flies to
+        out["spin"] = float(t["spin"])
     return out
 
 
@@ -155,6 +159,31 @@ def find(cut: dict, key: str, item_id: str) -> dict:
         if item.get("id") == item_id:
             return item
     raise KeyError(f"no {key[:-1]} with id {item_id!r}")
+
+
+def detail_problems(fx: dict, frames: int) -> list[str]:
+    """What is wrong with a details flash: every spot needs a box inside the frame and a frame inside the slot."""
+    from .look import DETAIL_KEYS, DETAIL_MODES
+    errors = []
+    spots = fx.get("spots") if isinstance(fx, dict) else None
+    if not spots:
+        return ["details needs spots: [{frame, box: [x, y, w, h]}]"]
+    for k, spot in enumerate(spots):
+        box = spot.get("box")
+        if not (isinstance(box, (list, tuple)) and len(box) == 4 and box[2] > 0 and box[3] > 0
+                and 0 <= box[0] < 1 and 0 <= box[1] < 1):
+            errors.append(f"details spot {k}: box must be [x, y, w, h] as fractions of the frame")
+        if not 0 <= int(spot.get("frame", 0)) < frames:
+            errors.append(f"details spot {k}: frame {spot.get('frame', 0)} is outside the slot (0-{frames - 1})")
+        if spot.get("mode", "fill") not in DETAIL_MODES:
+            errors.append(f"details spot {k}: unknown mode {spot.get('mode')!r} (known: {', '.join(DETAIL_MODES)})")
+        if spot.get("key", "auto") not in DETAIL_KEYS:
+            errors.append(f"details spot {k}: unknown key {spot.get('key')!r} (known: {', '.join(DETAIL_KEYS)})")
+        seed = spot.get("seed")
+        if seed is not None and isinstance(box, (list, tuple)) and len(box) == 4 and not (
+                box[0] <= seed[0] <= box[0] + box[2] and box[1] <= seed[1] <= box[1] + box[3]):
+            errors.append(f"details spot {k}: seed {seed} is outside its box")
+    return errors
 
 
 def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
@@ -199,6 +228,8 @@ def validate(cut: dict, project=None) -> tuple[list[str], list[str]]:
             fx_name = fx if isinstance(fx, str) else fx.get("name")
             if fx_name not in FX_NAMES:
                 errors.append(f"{name}: unknown fx {fx_name!r} (known: {', '.join(FX_NAMES)})")
+            elif fx_name == "details":
+                errors.extend(f"{name}: {e}" for e in detail_problems(fx, frames))
         if "card" in entry:
             continue
         if "src" not in entry or "in" not in entry:

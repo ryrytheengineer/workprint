@@ -76,8 +76,18 @@ def setup(progress=print) -> dict:
 _session = None
 
 
-def subject(frame: np.ndarray) -> np.ndarray:
-    """Alpha (0..1, same height and width as ``frame``) of the picture's subject."""
+def lifted(image: np.ndarray) -> np.ndarray:
+    """The picture stretched to full range with its shadows opened, for the matte model's eyes only:
+    a subject graded down to a dusk silhouette is then found as cleanly as it is in daylight."""
+    x = image.astype(np.float32)
+    lo, hi = np.percentile(x, 1.0), np.percentile(x, 99.5)
+    x = np.clip((x - lo) / max(hi - lo, 1.0), 0.0, 1.0) ** 0.6
+    return (x * 255.0 + 0.5).astype(np.uint8)
+
+
+def subject(frame: np.ndarray, lift: bool = False) -> np.ndarray:
+    """Alpha (0..1, same height and width as ``frame``) of the picture's subject. ``lift`` reads a dim frame
+    brightened first (the alpha still fits the frame as given)."""
     global _session
     have = tools()
     if not all(have.values()):
@@ -89,7 +99,8 @@ def subject(frame: np.ndarray) -> np.ndarray:
         options.intra_op_num_threads = max(1, min(4, os.cpu_count() or 1))
         _session = ort.InferenceSession(str(model_path()), options, providers=["CPUExecutionProvider"])
     h, w = frame.shape[:2]
-    x = cv2.resize(frame, (SIZE, SIZE), interpolation=cv2.INTER_AREA)[..., ::-1].astype(np.float32) / 255.0 - 0.5
+    small = cv2.resize(frame, (SIZE, SIZE), interpolation=cv2.INTER_AREA)
+    x = (lifted(small) if lift else small)[..., ::-1].astype(np.float32) / 255.0 - 0.5
     y = _session.run(None, {_session.get_inputs()[0].name: x.transpose(2, 0, 1)[None]})[0][0, 0]
     y = (y - y.min()) / (y.max() - y.min() + 1e-6)
     return cv2.resize(y, (w, h), interpolation=cv2.INTER_LINEAR)
@@ -104,8 +115,8 @@ class Tracker:
     def reset(self) -> None:
         self.last = None
 
-    def of(self, frame: np.ndarray) -> np.ndarray:
-        alpha = subject(frame)
+    def of(self, frame: np.ndarray, lift: bool = False) -> np.ndarray:
+        alpha = subject(frame, lift=True) if lift else subject(frame)
         if self.last is not None and self.last.shape == alpha.shape:
             alpha = self.steady * self.last + (1.0 - self.steady) * alpha
         self.last = alpha
@@ -118,16 +129,62 @@ def over(front: np.ndarray, back: np.ndarray, alpha: np.ndarray) -> np.ndarray:
     return (front * a + back * (1.0 - a) + 0.5).astype(np.uint8)
 
 
+def solid_alpha(alpha: np.ndarray, low: float = 0.35, span: float = 0.3) -> np.ndarray:
+    """A matte made firm for a cut-out that must read as solid: the soft fringe tightened to a few pixels.
+    Words set behind a subject use a lower threshold, so a dim, low-contrast subject still hides them fully."""
+    return np.clip((alpha.astype(np.float32) - low) / span, 0.0, 1.0)
+
+
+def revolve(subject: np.ndarray, alpha: np.ndarray, back: np.ndarray, p0: float, p1: float, leaving: bool,
+            spin: float = 1.0, steps: int = 6, turn: float = 260.0, rise: float = 0.18, grow: float = 0.35,
+            shutter: float = 1.0) -> np.ndarray:
+    """A cut-out that spins out of the frame (``leaving``) or spins in and lands in place, over ``back``.
+
+    ``p0``..``p1`` is the stretch of the move this frame covers; it is sampled ``steps`` times and averaged, which gives
+    the spin real motion blur. ``spin`` is +1 or -1: which way it turns and which side it flies to or from.
+    ``turn`` is how far it rotates (0 flies it off straight), ``rise`` how far it climbs, ``grow`` how much it scales,
+    and ``shutter`` how much of the frame's travel is blurred (1 is a full open shutter, 0.4 a crisp streak).
+    """
+    a = solid_alpha(alpha)
+    ys, xs = np.nonzero(a > 0.5)
+    if len(xs) == 0:
+        return back if leaving else subject
+    h, w = back.shape[:2]
+    cx, cy = float(xs.mean()), float(ys.mean())
+    color = subject.astype(np.float32) * a[..., None]
+    acc_c = np.zeros_like(color)
+    acc_a = np.zeros(a.shape, np.float32)
+    for k in range(steps):
+        p = p1 - (p1 - p0) * shutter * (1.0 - (k + 0.5) / steps)
+        e = p * p if leaving else (1.0 - p) * (1.0 - p)       # leaving: accelerates away; arriving: decelerates into place
+        angle = spin * turn * e
+        scale = 1.0 + grow * e
+        tx = spin * w * 1.15 * e
+        ty = -h * rise * e
+        M = cv2.getRotationMatrix2D((cx, cy), angle, scale)
+        M[0, 2] += tx
+        M[1, 2] += ty
+        acc_c += cv2.warpAffine(color, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=0)
+        acc_a += cv2.warpAffine(a, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=0)
+    acc_c /= steps
+    acc_a /= steps
+    out = back.astype(np.float32) * (1.0 - acc_a[..., None]) + acc_c
+    return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+
+
 def wipe(old: np.ndarray, new: np.ndarray, alpha: np.ndarray, p: float, style: str = "through") -> np.ndarray:
     """A transition led by the outgoing shot's subject, at progress ``p`` (0..1).
 
     ``through``: the new shot opens from the heart of the subject, fills its silhouette, then spreads to the frame.
     ``hold``: the new shot arrives at once behind the subject, which stays a moment and lets go.
-    With no clear subject it falls back to a dissolve.
+    ``pin``: the new shot arrives at once behind the subject, which stays whole, then goes on a hard cut. No fading.
+    With no clear subject it falls back to a dissolve (``pin`` falls back to a plain cut).
     """
     solid = alpha > 0.5
     if not solid.any() or solid.all():
-        return cv2.addWeighted(old, 1.0 - p, new, p, 0)
+        return new if style == "pin" else cv2.addWeighted(old, 1.0 - p, new, p, 0)
+    if style == "pin":
+        return over(old, new, solid_alpha(alpha))
     if style == "hold":
         return over(old, new, alpha * (1.0 - p * p * (3 - 2 * p)))
     inside = cv2.distanceTransform(solid.astype(np.uint8), cv2.DIST_L2, 3)

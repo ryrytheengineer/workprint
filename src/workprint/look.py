@@ -34,7 +34,7 @@ def resolve_look(look: dict | None) -> dict:
     grade = dict(PRESETS.get(look.get("preset", "none"), {}))
     grade.update(look.get("grade") or {})
     return {"grade": grade, "grain": float(look.get("grain", 0.0)), "vignette": float(look.get("vignette", 0.0)),
-            "letterbox": float(look.get("letterbox", 0.0))}
+            "letterbox": float(look.get("letterbox", 0.0)), "letterbox_until": float(look.get("letterbox_until", 0.0))}
 
 
 def _triple(value, default: float) -> np.ndarray:
@@ -109,6 +109,7 @@ class Finish:
         self.bar = 0
         if spec["letterbox"] > 0:
             self.bar = max(0, int(round((height - width / spec["letterbox"]) / 2)))
+        self.until = spec["letterbox_until"]  # seconds; 0 keeps the bars for the whole film
 
     def apply(self, frame: np.ndarray, index: int) -> np.ndarray:
         frame = self.grade.apply(frame)
@@ -116,11 +117,18 @@ class Finish:
             frame = cv2.multiply(frame, self.vignette, scale=1 / 255.0)
         if self.grain is not None:
             frame = cv2.addWeighted(frame, 1.0, self.grain[index % len(self.grain)], 1.0, -128.0)
-        if self.bar:
-            if not frame.flags.writeable:
-                frame = frame.copy()
-            frame[: self.bar] = 0
-            frame[-self.bar:] = 0
+        if self.bar and not self.until:
+            frame = self.bars(frame)
+        return frame
+
+    def bars(self, frame: np.ndarray, seconds: float | None = None) -> np.ndarray:
+        """The letterbox bars; with ``letterbox_until`` they hold until that second, then the frame opens."""
+        if not self.bar or (self.until and seconds is not None and seconds >= self.until):
+            return frame
+        if not frame.flags.writeable:
+            frame = frame.copy()
+        frame[: self.bar] = 0
+        frame[-self.bar:] = 0
         return frame
 
 
@@ -165,6 +173,81 @@ def xray(frame: np.ndarray, spec: dict | None = None) -> np.ndarray:
     return cv2.merge(channels)
 
 
+DETAIL_MODES = ("fill", "invert", "outline")
+DETAIL_KEYS = ("dark", "light", "auto", "none")
+
+
+def detail_mask(frame: np.ndarray, spot: dict) -> np.ndarray:
+    """Where one detail of the picture is, as a 0..1 mask the size of ``frame``: a quick roto by luma key.
+    ``box`` (x, y, w, h as fractions of the frame) bounds the detail. Inside it the picture is split at its
+    own dark/light threshold (or at ``level``, 0..1) and ``key`` keeps one side: "dark" (a wing against the sky), "light" (lettering
+    on a dark hull), "auto" (whichever side is smaller) or "none" (the whole box). ``seed`` [x, y] keeps only
+    the piece under that point; ``inside`` drops pieces that touch the box edge (sky in a corner)."""
+    h, w = frame.shape[:2]
+    box = spot["box"]
+    x0, y0 = max(0, int(round(box[0] * w))), max(0, int(round(box[1] * h)))
+    x1, y1 = min(w, int(round((box[0] + box[2]) * w))), min(h, int(round((box[1] + box[3]) * h)))
+    mask = np.zeros((h, w), np.float32)
+    if x1 - x0 < 4 or y1 - y0 < 4:
+        return mask
+    key = spot.get("key", "auto")
+    if key == "none":
+        mask[y0:y1, x0:x1] = 1.0
+        return mask
+    lum = cv2.cvtColor(np.ascontiguousarray(frame[y0:y1, x0:x1]), cv2.COLOR_BGR2GRAY)
+    if spot.get("level") is not None:  # a set threshold, 0..1, when the box holds more than two tones
+        dark = (lum < float(spot["level"]) * 255).astype(np.uint8)
+    else:
+        _, dark = cv2.threshold(lum, 0, 1, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    side = dark if key == "dark" or (key == "auto" and dark.mean() <= 0.5) else 1 - dark
+    side = cv2.morphologyEx(side.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(side, connectivity=8)
+    keep = np.zeros(count, bool)
+    keep[1:] = stats[1:, cv2.CC_STAT_AREA] >= max(24, 0.002 * side.size)  # no specks
+    if spot.get("inside"):
+        bw, bh = x1 - x0, y1 - y0
+        st = stats
+        touching = (st[:, 0] == 0) | (st[:, 1] == 0) | (st[:, 0] + st[:, 2] >= bw) | (st[:, 1] + st[:, 3] >= bh)
+        keep &= ~touching
+    if spot.get("seed"):
+        sx = min(x1 - x0 - 1, max(0, int(round(spot["seed"][0] * w)) - x0))
+        sy = min(y1 - y0 - 1, max(0, int(round(spot["seed"][1] * h)) - y0))
+        only = labels[sy, sx]
+        if not keep[only]:  # the seed fell between pixels of a thin part: take the nearest piece kept
+            ys, xs = np.nonzero(keep[labels])
+            only = labels[ys[np.argmin((ys - sy) ** 2 + (xs - sx) ** 2)], xs[np.argmin((ys - sy) ** 2 + (xs - sx) ** 2)]] if len(ys) else 0
+        keep &= np.arange(count) == only
+    found = keep[labels].astype(np.float32)
+    mask[y0:y1, x0:x1] = cv2.GaussianBlur(found, (3, 3), 0)  # a pixel of softness, no more
+    return mask
+
+
+def flash_detail(frame: np.ndarray, spot: dict, color: str = "#f4f4f1") -> np.ndarray:
+    """One detail lit for a frame: filled flat, turned negative, or traced in bright lines."""
+    mode = spot.get("mode", "fill")
+    mask = detail_mask(frame, {**spot, "key": spot.get("key", "none" if mode == "invert" else "auto")})
+    if not mask.any():
+        return frame
+    if mode == "invert":
+        lit = 255 - frame
+    else:
+        lit = np.empty_like(frame)
+        lit[:] = hex_bgr(spot.get("color", color))
+        if mode == "outline":  # the cut-out's edge and the lines inside it
+            solid = (mask > 0.5).astype(np.uint8)
+            rim = cv2.morphologyEx(solid, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
+            h, w = solid.shape  # where the box itself cut the detail off there is no edge to trace
+            x0, y0 = int(round(spot["box"][0] * w)) + 2, int(round(spot["box"][1] * h)) + 2
+            x1, y1 = int(round((spot["box"][0] + spot["box"][2]) * w)) - 2, int(round((spot["box"][1] + spot["box"][3]) * h)) - 2
+            inner_box = np.zeros_like(solid)
+            inner_box[max(0, y0):max(0, y1), max(0, x0):max(0, x1)] = 1
+            rim *= inner_box
+            inner = cv2.Canny(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), 50, 150) // 255 * solid
+            mask = cv2.dilate(np.maximum(rim, inner), np.ones((2, 2), np.uint8)).astype(np.float32)
+    a = mask[..., None]
+    return (lit.astype(np.float32) * a + frame.astype(np.float32) * (1.0 - a) + 0.5).astype(np.uint8)
+
+
 def apply_fx(frame: np.ndarray, fx_list: list, local: int, frames: int) -> np.ndarray:
     """Apply a slot's effects to one frame. ``local`` is the frame index inside the slot."""
     for fx in fx_list or []:
@@ -186,6 +269,11 @@ def apply_fx(frame: np.ndarray, fx_list: list, local: int, frames: int) -> np.nd
             frame = out
         elif name == "invert":
             frame = 255 - frame
+        elif name == "details":  # the fast details flash: single details lit for a frame each
+            for spot in spec.get("spots") or []:
+                first = int(spot.get("frame", 0))
+                if first <= local < first + int(spot.get("frames", 1)):
+                    frame = flash_detail(frame, spot, spec.get("color", "#f4f4f1"))
         elif name == "mono":
             frame = cv2.cvtColor(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
         elif name == "xray":  # inverted luminance, cold tint, edges lifted
