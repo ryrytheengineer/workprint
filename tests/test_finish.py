@@ -30,7 +30,7 @@ def test_a_matte_transition_renders_and_passes_the_check(project, left_half_subj
     cut["cuts"][1]["t"] = {"type": "matte", "frames": 12}
     assert manifest.validate(cut, project)[0] == []
     out = project.root / "m.mp4"
-    stats = render(project, cut, out, 0.5, 20, "ultrafast", progress=QUIET)
+    stats = render(project, cut, out, 0.5, 20, "ultrafast", jobs=1, progress=QUIET)
     plain = project.root / "p.mp4"
     render(project, three_slot_cut(project), plain, 0.5, 20, "ultrafast", progress=QUIET)
     a, b = ff.grab_frame(out, 2.0 + 3 / 24), ff.grab_frame(plain, 2.0 + 3 / 24)
@@ -153,7 +153,7 @@ def test_a_fly_in_lands_then_its_background_flashes_in(project, left_half_subjec
     assert manifest.transition_of(cut["cuts"][1])["flash"] == 3
     assert manifest.validate(cut, project)[0] == []
     out, plain = project.root / "fly.mp4", project.root / "plain.mp4"
-    stats = render(project, cut, out, 0.5, 20, "ultrafast", progress=QUIET)
+    stats = render(project, cut, out, 0.5, 20, "ultrafast", jobs=1, progress=QUIET)
     render(project, three_slot_cut(project), plain, 0.5, 20, "ultrafast", progress=QUIET)
     grab = lambda p, k: ff.grab_frame(p, 2.0 + (k + 0.5) / 24).astype(int)
     assert stats["underrun_frames"] == 0
@@ -217,7 +217,7 @@ def test_lead_brings_the_new_subject_first_then_its_background(project, left_hal
     cut["cuts"][1]["t"] = {"type": "matte", "frames": 6, "style": "lead"}
     assert manifest.validate(cut, project)[0] == []
     out, plain = project.root / "lead.mp4", project.root / "plain.mp4"
-    stats = render(project, cut, out, 0.5, 20, "ultrafast", progress=QUIET)
+    stats = render(project, cut, out, 0.5, 20, "ultrafast", jobs=1, progress=QUIET)
     render(project, three_slot_cut(project), plain, 0.5, 20, "ultrafast", progress=QUIET)
     grab = lambda p, k: ff.grab_frame(p, 2.0 + (k + 0.5) / 24).astype(int)
     a, b = grab(out, 2), grab(plain, 2)

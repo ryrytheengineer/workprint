@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -132,8 +133,10 @@ def test_exports(rendered, tmp_path):
 
 def test_command_line_end_to_end(media, tmp_path):
     def run(*args, ok=True):
+        # the whole environment, not just PATH: Windows needs SYSTEMROOT to start Python and
+        # USERPROFILE to find the home folder
         proc = subprocess.run([sys.executable, "-m", "workprint", *args], capture_output=True, text=True,
-                              env={"PYTHONPATH": SRC, "PATH": __import__("os").environ["PATH"]})
+                              env={**os.environ, "PYTHONPATH": SRC})
         assert not ok or proc.returncode == 0, proc.stdout + proc.stderr
         return proc.stdout
     film = str(tmp_path / "film")

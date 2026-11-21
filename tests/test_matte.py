@@ -10,7 +10,10 @@ from tests.test_voice import three_slot_cut
 
 @pytest.fixture()
 def left_half_subject(monkeypatch):
-    """Stand in for the model: the subject is the left half of the frame."""
+    """Stand in for the model: the subject is the left half of the frame.
+
+    The stand-in is patched into this process only. Render with jobs=1 when it must reach the
+    picture: workers started by spawn (Windows, and macOS by default) import the real matte."""
     def fake(frame, lift=False):
         alpha = np.zeros(frame.shape[:2], np.float32)
         alpha[:, :frame.shape[1] // 2] = 1.0
@@ -32,7 +35,7 @@ def test_words_can_sit_behind_the_subject(project, left_half_subject):
     render(project, captioned(project, False), front, 0.5, 14, "ultrafast", progress=quiet)
     cut = captioned(project, True)
     assert plan(project, cut, 0.5, 14, "ultrafast")["todo"] == [1]  # only the chunk under the words
-    render(project, cut, back, 0.5, 14, "ultrafast", progress=quiet)
+    render(project, cut, back, 0.5, 14, "ultrafast", jobs=1, progress=quiet)
     p, f, b = (ff.grab_frame(x, 3.0).astype(int) for x in (plain, front, back))
     w = p.shape[1]
     left, right = slice(0, w // 2 - 8), slice(w // 2 + 8, w)
